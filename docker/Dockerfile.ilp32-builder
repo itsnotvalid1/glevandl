@@ -1,0 +1,46 @@
+# Container image for compiling ARM64 ILP32 kernel, toolchain and user programs.
+
+ARG DOCKER_FROM
+
+FROM ${DOCKER_FROM}
+
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+
+ENV ILP32_BUILDER 1
+
+RUN \
+	echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.list \
+	&& apt-get update \
+	&& apt-get -y upgrade \
+	&& DEBIAN_FRONTEND=noninteractive apt-get -y install \
+		apt-utils \
+		bash \
+		bash-completion \
+		bc \
+		bison \
+		bsdmainutils \
+		build-essential \
+		ccache \
+		file \
+		flex \
+		gawk \
+		git \
+		gcc-aarch64-linux-gnu \
+		libgmp-dev \
+		libmpc-dev \
+		libmpfr-dev \
+		libssl-dev \
+		net-tools \
+		python3 \
+		qemu-system-aarch64 \
+		rsync \
+		strace \
+		sudo \
+		texinfo \
+		vim \
+		wget \
+	&& DEBIAN_FRONTEND=noninteractive apt-get -y autoremove \
+	&& rm -rf /var/lib/apt/lists/*
+
+CMD /bin/bash
