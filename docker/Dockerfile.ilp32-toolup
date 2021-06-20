@@ -1,15 +1,13 @@
-# Container image for compiling ARM64 ILP32 kernel and user programs.
+# Container image for compiling ARM64 ILP32 kernel and toolchain.
 
 ARG DOCKER_FROM
 
 FROM ${DOCKER_FROM}
 
-ARG TOOLCHAIN_PREFIX
-
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
-ENV ILP32_BUILDER 1
+ENV ILP32_TOOLUP 1
 
 RUN \
 	echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.list \
@@ -21,31 +19,28 @@ RUN \
 		bash-completion \
 		bc \
 		bison \
+		bsdmainutils \
 		build-essential \
 		ccache \
 		file \
 		flex \
+		gawk \
 		git \
 		gcc-aarch64-linux-gnu \
+		libgmp-dev \
+		libmpc-dev \
+		libmpfr-dev \
 		libssl-dev \
 		net-tools \
+		python3 \
 		qemu-system-aarch64 \
 		rsync \
 		strace \
 		sudo \
+		texinfo \
 		vim \
 		wget \
 	&& DEBIAN_FRONTEND=noninteractive apt-get -y autoremove \
 	&& rm -rf /var/lib/apt/lists/*
-
-ENV PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
-
-COPY . /
-
-RUN \
-	if [ "$(uname -m)" = "aarch64" ]; then \
-		ln -sfv ${TOOLCHAIN_PREFIX}/libilp32 \
-		&& ln -sfv ${TOOLCHAIN_PREFIX}/lib/ld-linux-aarch64_ilp32.so.1 /lib/; \
-	fi
 
 CMD /bin/bash

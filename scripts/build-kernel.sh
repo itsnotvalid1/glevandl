@@ -9,7 +9,7 @@ usage () {
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -b --build-dir    - Build directory. Default: '${build_dir}'." >&2
 	echo "  -i --install-dir  - Install directory. Default: '${install_dir}'." >&2
-	echo "  -s --kernel-src   - Target install directory. Default: '${kernel_src}'." >&2
+	echo "  -s --kernel-src   - Kernel source directory. Default: '${kernel_src}'." >&2
 	echo "Args:" >&2
 	echo "  user make options - Default: '${user_make_options}'" >&2
 	eval "${old_xtrace}"
@@ -75,13 +75,14 @@ trap "on_exit 'failed.'" EXIT
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 PROJECT_TOP=${PROJECT_TOP:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
 
-source ${SCRIPTS_TOP}/util.sh
+source ${SCRIPTS_TOP}/lib/util.sh
 
 process_opts "${@}"
 
 cpus="$(getconf _NPROCESSORS_ONLN || echo 1)"
+
 install_dir=${install_dir:-"${build_dir}/install"}
-headers_dir=${install_dir}/kernel-headers
+headers_dir=${headers_dir:-"${install_dir}/kernel-headers"}
 
 if [[ ${usage} ]]; then
 	usage
@@ -100,26 +101,37 @@ check_opt 'build-dir' ${build_dir}
 check_opt 'kernel-src' ${kernel_src}
 check_directory "${kernel_src}"
 
-make_options="-j${cpus} ARCH=arm64 CROSS_COMPILE='${ccache}aarch64-linux-gnu-' INSTALL_MOD_PATH='${install_dir}' INSTALL_PATH='${install_dir}/boot' INSTALL_HDR_PATH='${headers_dir}' INSTALLKERNEL=non-existent-file O='${build_dir}' ${user_make_options}"
-
 export CCACHE_DIR=${CCACHE_DIR:-"${build_dir}.ccache"}
 
 mkdir -p ${build_dir}
+mkdir -p ${install_dir} ${install_dir}/boot ${install_dir}/lib/modules
+mkdir -p ${headers_dir}
 mkdir -p ${CCACHE_DIR}
+
+make_options="-j${cpus} ARCH=arm64 CROSS_COMPILE='${ccache}aarch64-linux-gnu-' INSTALL_MOD_PATH='${install_dir}' INSTALL_PATH='${install_dir}/boot' INSTALL_HDR_PATH='${headers_dir}' INSTALLKERNEL=non-existent-file ${user_make_options}"
 
 cmd="make -C ${kernel_src} ${make_options} mrproper"
 eval ${cmd}
 
-cmd="make -C ${kernel_src} ${make_options} defconfig"
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' defconfig"
 eval ${cmd}
 
-cmd="make -C ${kernel_src} ${make_options} savedefconfig"
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' savedefconfig"
 eval ${cmd}
 
-cmd="make -C ${kernel_src} ${make_options} prepare"
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' prepare"
 eval ${cmd}
 
 cmd="make -C ${kernel_src} ${make_options} headers_install"
+eval ${cmd}
+
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}'"
+eval ${cmd}
+
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' install"
+eval ${cmd}
+
+cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' modules_install"
 eval ${cmd}
 
 echo "${name}: INFO: kernel headers installed to '${headers_dir}'." >&2

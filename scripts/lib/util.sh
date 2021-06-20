@@ -8,6 +8,54 @@ clean_ws() {
 	echo -n "$in"
 }
 
+substring_has() {
+	local string=${1}
+	local substring=${2}
+
+	[ -z "${string##*${substring}*}" ];
+}
+
+substring_begins() {
+	local string=${1}
+	local substring=${2}
+
+	[ -z "${string##${substring}*}" ];
+}
+
+substring_ends() {
+	local string=${1}
+	local substring=${2}
+
+	[ -z "${string##*${substring}}" ];
+}
+
+strip_current() {
+	local path=${1}
+
+	if [[ ! ${CURRENT_WORK_DIR} ]]; then
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
+		exit 1
+	fi
+
+	if ! substring_begins ${path} ${CURRENT_WORK_DIR}; then
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad path: '${path}'" >&2
+		exit 1
+	fi
+
+	echo "${path#${CURRENT_WORK_DIR}}"
+}
+
+to_host() {
+	local path=${1}
+
+	if [[ ! ${HOST_WORK_DIR} ]]; then
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad HOST_WORK_DIR" >&2
+		exit 1
+	fi
+
+	echo "${HOST_WORK_DIR}$(strip_current ${path})"
+}
+
 sec_to_min() {
 	local sec=${1}
 	local min="$((sec / 60))"
@@ -48,7 +96,7 @@ check_directory() {
 	local usage="${3}"
 
 	if [[ ! -d "${src}" ]]; then
-		echo "${name}: ERROR: Directory not found${msg}: '${src}'" >&2
+		echo "${name}: ERROR (${FUNCNAME[0]}): Directory not found${msg}: '${src}'" >&2
 		[[ -z "${usage}" ]] || usage
 		exit 1
 	fi
@@ -72,10 +120,40 @@ check_opt() {
 	value=${@}
 
 	if [[ ! ${value} ]]; then
-		echo "${name}: ERROR: Must provide --${option} option." >&2
+		echo "${name}: ERROR (${FUNCNAME[0]}): Must provide --${option} option." >&2
 		usage
 		exit 1
 	fi
+}
+
+relative_path_2() {
+	local base="${1}"
+	local target="${2}"
+	local root="${3}"
+
+	base="${base##${root}}"
+	base="${base%%/}"
+	base=${base%/*}
+	target="${target%%/}"
+
+	local back=""
+	while :; do
+		set +x
+		echo "target: ${target}" >&2
+		echo "base:   ${base}" >&2
+		echo "back:   ${back}" >&2
+		set -x
+		if [[ "${base}" == "/" || ! ${base} ]]; then
+			break
+		fi
+		back+="../"
+		if [[ "${target}" == ${base}/* ]]; then
+			break
+		fi
+		base=${base%/*}
+	done
+
+	echo "${back}${target##${base}/}"
 }
 
 relative_path() {
@@ -120,7 +198,7 @@ get_user_home() {
 	local result;
 
 	if ! result="$(getent passwd ${user})"; then
-		echo "${name}: ERROR: No home for user '${user}'" >&2
+		echo "${name}: ERROR (${FUNCNAME[0]}): No home for user '${user}'" >&2
 		exit 1
 	fi
 	echo ${result} | cut -d ':' -f 6
@@ -130,13 +208,43 @@ get_arch() {
 	local a=${1}
 
 	case "${a}" in
-	arm64|aarch64)		echo "arm64" ;;
-	amd64|x86_64)		echo "amd64" ;;
-	ppc|powerpc)		echo "powerpc" ;;
-	ppc64|powerpc64)	echo "powerpc64" ;;
-	ppc64le|powerpc64le)	echo "powerpc64le" ;;
+	arm64|aarch64)			echo "arm64" ;;
+	amd64|x86_64)			echo "amd64" ;;
+	ppc|powerpc|ppc32|powerpc32)	echo "ppc32" ;;
+	ppc64|powerpc64)		echo "ppc64" ;;
+	ppc64le|powerpc64le)		echo "ppc64le" ;;
 	*)
-		echo "${name}: ERROR: Bad arch '${a}'" >&2
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		exit 1
+		;;
+	esac
+}
+
+get_triple() {
+	local a=${1}
+
+	case "${a}" in
+	amd64)		echo "x86_64-linux-gnu" ;;
+	arm64)		echo "aarch64-linux-gnu" ;;
+	ppc32)		echo "powerpc-linux-gnu" ;;
+	ppc64)		echo "powerpc64-linux-gnu" ;;
+	ppc64le)	echo "powerpc64le-linux-gnu" ;;
+	*)
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		exit 1
+		;;
+	esac
+}
+
+kernel_arch() {
+	local a=${1}
+
+	case "${a}" in
+	amd64)		echo "x86_64" ;;
+	arm64*)		echo "arm64" ;;
+	ppc*)		echo "powerpc" ;;
+	*)
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
 		exit 1
 		;;
 	esac
@@ -180,7 +288,7 @@ find_addr() {
 			| egrep -o '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' || :)"
 
 		if [[ ! ${_find_addr__addr} ]]; then
-			echo "${name}: ERROR: '${host}' DNS entry not found." >&2
+			echo "${name}: ERROR (${FUNCNAME[0]}): '${host}' DNS entry not found." >&2
 			exit 1
 		fi
 	fi
@@ -201,7 +309,7 @@ wait_pid() {
 	while kill -0 ${pid} &> /dev/null; do
 		let count=count+5
 		if [[ count -gt ${timeout_sec} ]]; then
-			echo "${name}: ERROR: wait_pid failed for pid ${pid}." >&2
+			echo "${name}: ERROR (${FUNCNAME[0]}): wait_pid failed for pid ${pid}." >&2
 			exit -1
 		fi
 		sleep 5s
@@ -216,7 +324,7 @@ git_set_remote() {
 	remote="$(git -C ${dir} remote -v | egrep 'origin' | cut -f2 | cut -d ' ' -f1)"
 
 	if [[ ${?} -ne 0 ]]; then
-		echo "${name}: ERROR: Bad git repo ${dir}." >&2
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad git repo ${dir}." >&2
 		exit 1
 	fi
 
@@ -232,8 +340,9 @@ git_checkout_safe() {
 	local repo=${2}
 	local branch=${3:-'master'}
 
-	if [[ ! -d "${dir}" ]]; then
+	if [[ ! -f "${dir}/.git/config" ]]; then
 		mkdir -p "${dir}/.."
+		rm -rf ${dir}
 		git clone ${repo} "${dir}"
 	else
 		local backup
@@ -256,7 +365,7 @@ git_checkout_safe() {
 	git_set_remote ${dir} ${repo}
 	git -C ${dir} remote update
 	git -C ${dir} checkout --force ${branch}
-	#git -C ${dir} pull
+	git -C ${dir} reset --hard origin/${branch}
 }
 
 git_checkout_force() {

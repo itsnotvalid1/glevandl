@@ -8,7 +8,7 @@ usage () {
 	echo "Option flags:" >&2
 	echo "  -h --help                 - Show this help and exit." >&2
 	echo "  --build-top   <directory> - Top build directory. Default: '${build_top}'." >&2
-#	echo "  --dest-dir    <directory> - Make DESTDIR. Default: '${dest_dir}'." >&2
+#	echo "  --prefix-dir  <directory> - Make prefix. Default: '${prefix_dir}'." >&2
 	echo "  --install-dir <directory> - Install directory. Default: '${install_dir}'." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --git-clone     - Clone git repos." >&2
@@ -18,15 +18,15 @@ usage () {
 	echo "  -5 --glibc-lp64    - Build glibc_lp64." >&2
 	echo "  -6 --glibc-ilp32   - Build glibc_ilp32." >&2
 	echo "  -7 --gcc-final     - Build final gcc." >&2
-	echo "  -8 --print-info    - Print toolchain info." >&2
+	echo "  -8 --archive       - Create toolchain archive file." >&2
 	eval "${old_xtrace}"
 }
 
 process_opts() {
 	local short_opts="h12345678"
 	local long_opts="help,\
-build-top:,dest-dir:,install-dir:,\
-git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,print-info"
+build-top:,prefix-dir:,install-dir:,\
+git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archive"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -50,8 +50,8 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,print-
 			build_top="${2}"
 			shift 2
 			;;
-		--dest-dir)
-			dest_dir="${2}"
+		--prefix-dir)
+			prefix_dir="${2}"
 			shift 2
 			;;
 		--install-dir)
@@ -90,8 +90,8 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,print-
 			step_gcc_final=1
 			shift
 			;;
-		-8 | --print-info)
-			step_print_info=1
+		-8 | --archive)
+			step_archive=1
 			shift
 			;;
 		--)
@@ -147,6 +147,7 @@ build_binutils() {
 	make -C ${dir} install
 
 	export PATH="${path_orig}"
+	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_gcc_bootstrap() {
@@ -180,6 +181,7 @@ build_gcc_bootstrap() {
 
 	unset BUILD_CC CC CXX AR RANLIB AS LD
 	export PATH="${path_orig}"
+	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_headers() {
@@ -188,6 +190,8 @@ build_headers() {
 		CROSS_COMPILE="${target_triple}-" \
 		INSTALL_HDR_PATH="${install_dir}/usr" \
 		headers_install
+
+	find ${install_dir} -type f -ls >> ${build_dir}/headers-manifest.txt
 }
 
 build_glibc() {
@@ -220,8 +224,9 @@ build_glibc() {
 	popd
 
 	make -C ${dir} -j ${cpus} all
-	make -C ${dir} -j ${cpus} DESTDIR=${install_dir} install
+	make -C ${dir} DESTDIR=${install_dir} install
 	export PATH="${path_orig}"
+	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_gcc_final() {
@@ -250,6 +255,11 @@ build_gcc_final() {
 	make -C ${dir} install
 
 	export PATH="${path_orig}"
+	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
+}
+
+archive_sysroot() {
+	tar -C ${install_dir} -czf "${build_top}/ilp32-toolchain-${build_time}.tar.gz" .
 }
 
 print_info() {
@@ -333,8 +343,10 @@ build_top=${build_top:-"$(pwd)"}
 
 build_dir=${build_dir:-"${build_top}/build"}
 src_dir=${src_dir:-"${build_top}/src"}
-install_dir=${install_dir:-"${build_top}/install"}
+
+install_dir=${install_dir:-"${build_top}/sysroot"}
 headers_dir="${install_dir}/usr/include"
+
 log_file=${log_file:-"${build_top}/build-${build_time}.log"}
 
 binutils_src="${src_dir}/binutils"
@@ -378,6 +390,11 @@ if [[ ${usage} ]]; then
 	exit 0
 fi
 
+if [[ ${DESTDIR} ]]; then
+	echo "${name}: ERROR: Use --install-dir option, not DESTDIR environment variable." >&2
+	exit 1
+fi
+
 SECONDS=0
 
 host_arch=$(get_arch "$(uname -m)")
@@ -399,6 +416,7 @@ else
 	target_opts="${target_opts:-"--target=${target_triple} --host=${target_triple} --build=${target_triple}"}"
 fi
 
+mkdir -p ${build_top}
 cp -vf ${BASH_SOURCE} ${build_top}/
 
 while true; do
@@ -409,6 +427,8 @@ while true; do
 	elif [[ ${step_binutils} ]]; then
 		current_step="step_binutils"
 		test_for_src
+		mkdir -p ${install_dir}
+		rm -rf ${install_dir}/*
 		build_binutils
 		unset step_binutils
 	elif [[ ${step_gcc_bootstrap} ]]; then
@@ -443,13 +463,14 @@ while true; do
 		test_for_glibc
 		build_gcc_final
 		unset step_gcc_final
-	elif [[ ${step_print_info} ]]; then
-		current_step="step_print_info"
+	elif [[ ${step_archive} ]]; then
+		current_step="step_archive"
 		test_for_binutils
 		test_for_gcc
 		test_for_glibc
+		archive_sysroot
 		print_info ${log_file}
-		unset step_print_info
+		unset step_archive
 	else
 		if [[ ${current_step} == "setup" ]]; then
 			echo "${name}: ERROR: Must specify an option step." >&2
