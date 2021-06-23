@@ -14,6 +14,7 @@ usage () {
 	echo "  -r --runner         - Build ilp32-runner container image." >&2
 	echo "  --build-top         - Top build directory. Default: '${build_top}'." >&2
 	echo "  --toolchain-destdir - Top toolchain directory. Default: '${toolchain_destdir}'." >&2
+	echo "  --toolchain-prefix  - Top toolchain directory. Default: '${toolchain_prefix}'." >&2
 	echo "Environment:" >&2
 	echo "  HOST_WORK_DIR       - Default: '${HOST_WORK_DIR}'" >&2
 	echo "  CURRENT_WORK_DIR    - Default: '${CURRENT_WORK_DIR}'" >&2
@@ -22,7 +23,8 @@ usage () {
 
 process_opts() {
 	local short_opts="hftcbr"
-	local long_opts="help,force,toolup,toolchain,builder,runner,build-top:,--toolchain-destdir:"
+	local long_opts="help,force,toolup,toolchain,builder,runner,\
+build-top:,--toolchain-destdir:,--toolchain-prefix:"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -62,6 +64,10 @@ process_opts() {
 			;;
 		--toolchain-destdir)
 			toolchain_destdir="${2}"
+			shift 2
+			;;
+		--toolchain-prefix)
+			toolchain_prefix="${2}"
 			shift 2
 			;;
 		--)
@@ -148,11 +154,11 @@ test_for_image() {
 }
 
 test_for_toolchain() {
-	if ! test -x "$(command -v ${toolchain_destdir}${toolchain_install_dir}/bin/${target_triple}-gcc)"; then
-		echo "${name}: ERROR: No toolchain found: '${toolchain_destdir}${toolchain_install_dir}'" >&2
-		return 1
+	if test -x "$(command -v ${toolchain_dest_pre}/bin/${target_triple}-gcc)"; then
+		return 0
 	fi
-	return 0
+	echo "${name}: INFO: No toolchain found: '${toolchain_dest_pre}'" >&2
+	return 1
 }
 
 build_toolup() {
@@ -163,48 +169,51 @@ build_toolup() {
 }
 
 build_toolchain() {
-	# FIXME: for debug
-	if [[ -d ${DEBUG_TOOLCHAIN_SRC} ]]; then
-		rm -rf ${build_top}/src
-		mkdir -p ${build_top}
-		cp -a --link ${DEBUG_TOOLCHAIN_SRC} ${build_top}/src
-	fi
-	# FIXME: for debug
-	if [[ -d ${DEBUG_TOOLCHAIN_DESTDIR} ]]; then
-		mkdir -p ${build_top}
-		rsync -a --delete ${DEBUG_TOOLCHAIN_DESTDIR}/ ${toolchain_destdir}/
-	fi
+	mkdir -p ${toolchain_dest_pre}
 
-	mkdir -p ${toolchain_destdir}${toolchain_install_dir}
-
+	printenv
 	${SCRIPTS_TOP}/enter-toolup.sh \
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
-		--docker-args="-v "$(to_host ${toolchain_destdir}${toolchain_install_dir})":${toolchain_install_dir}" \
+		--docker-args="\
+			-v "$(to_host ${toolchain_dest_pre})":${toolchain_prefix} \
+			-e DEBUG_TOOLCHAIN_SRC \
+		" \
 		-- ${toolup_scripts_top}/build-toolchain.sh \
 			--build-top=${toolup_build_top} \
-			--install-dir=${toolchain_install_dir} \
+			--destdir="/" \
+			--prefix=${toolchain_prefix} \
 			-12345678
 }
 
 build_builder() {
-	if [[ ${force} ]] || ! test_for_image builder; then
-		if test_for_toolchain; then
-			build_image builder ${toolchain_destdir} ${toolchain_install_dir}
+	local type=builder
+
+	if [[ ${force} ]] || ! test_for_image ${type}; then
+		if [[ ${force} ]] || ! test_for_toolchain; then
+			echo "${name}: INFO: Building toolchain..." >&2
+			build_toolchain
 		fi
+		echo "${name}: INFO: Using existing toolchain." >&2
+		build_image ${type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
 
 build_runner() {
+	local type=runner
+
 	if [[ ${host_arch} != ${target_arch} ]]; then
 		echo "${name}: ERROR: ilp32-runner must be built on '${target_arch}'" >&2
 		exit 1
 	fi
 
-	if [[ ${force} ]] || ! test_for_image runner; then
-		if test_for_toolchain; then
-			build_image runner ${toolchain_destdir} ${toolchain_install_dir}
+	if [[ ${force} ]] || ! test_for_image ${type}; then
+		if ! test_for_toolchain; then
+			echo "${name}: INFO: Building toolchain..." >&2
+			build_toolchain
 		fi
+		echo "${name}: INFO: Using existing toolchain." >&2
+		build_image ${type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
 
@@ -232,9 +241,10 @@ export HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
 export CURRENT_WORK_DIR=${CURRENT_WORK_DIR:-"${HOST_WORK_DIR}"}
 
 build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/build-${build_time}"})"
-toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 
-toolchain_install_dir=${toolchain_install_dir:-"/opt/ilp32"}
+toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
+toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}
+toolchain_dest_pre="${toolchain_destdir}${toolchain_prefix}"
 
 docker_top=${docker_top:-"$(cd "${SCRIPTS_TOP}/../docker" && pwd)"}
 

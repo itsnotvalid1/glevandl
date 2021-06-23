@@ -8,8 +8,8 @@ usage () {
 	echo "Option flags:" >&2
 	echo "  -h --help                 - Show this help and exit." >&2
 	echo "  --build-top   <directory> - Top build directory. Default: '${build_top}'." >&2
-#	echo "  --prefix-dir  <directory> - Make prefix. Default: '${prefix_dir}'." >&2
-	echo "  --install-dir <directory> - Install directory. Default: '${install_dir}'." >&2
+	echo "  --destdir <directory>     - Install destdir directory. Default: '${destdir}'." >&2
+	echo "  --prefix  <directory>     - Install prefix. Default: '${prefix}'." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --git-clone     - Clone git repos." >&2
 	echo "  -2 --binutils      - Build binutils." >&2
@@ -18,14 +18,14 @@ usage () {
 	echo "  -5 --glibc-lp64    - Build glibc_lp64." >&2
 	echo "  -6 --glibc-ilp32   - Build glibc_ilp32." >&2
 	echo "  -7 --gcc-final     - Build final gcc." >&2
-	echo "  -8 --archive       - Create toolchain archive file." >&2
+	echo "  -8 --archive       - Create toolchain archive files." >&2
 	eval "${old_xtrace}"
 }
 
 process_opts() {
 	local short_opts="h12345678"
 	local long_opts="help,\
-build-top:,prefix-dir:,install-dir:,\
+build-top:,destdir:,prefix:,\
 git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archive"
 
 	local opts
@@ -50,12 +50,12 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archiv
 			build_top="${2}"
 			shift 2
 			;;
-		--prefix-dir)
-			prefix_dir="${2}"
+		--destdir)
+			destdir="${2}"
 			shift 2
 			;;
-		--install-dir)
-			install_dir="${2}"
+		--prefix)
+			prefix="${2}"
 			shift 2
 			;;
 		--src-dir)
@@ -134,20 +134,20 @@ build_binutils() {
 	rm -rf ${dir}
 	mkdir -p ${dir}
 
-	export PATH="${install_dir}/bin:${path_orig}"
+	export PATH="${dest_pre}/bin:${path_orig}"
 
 	pushd ${dir}
 	${binutils_src}/configure \
 		${target_opts} \
-		--prefix=${install_dir} \
-		--with-sysroot=${install_dir}
+		--prefix=${dest_pre} \
+		--with-sysroot=${dest_pre}
 	popd
 
 	make -C ${dir} -j ${cpus} all
 	make -C ${dir} install
 
 	export PATH="${path_orig}"
-	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
+	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_gcc_bootstrap() {
@@ -156,14 +156,14 @@ build_gcc_bootstrap() {
 	rm -rf ${dir}
 	mkdir -p ${dir}
 
-	export PATH="${install_dir}/bin:${path_orig}"
-	mkdir -p ${install_dir}/usr/lib
+	export PATH="${dest_pre}/bin:${path_orig}"
+	mkdir -p ${dest_pre}/usr/lib
 
 	pushd ${dir}
 	${gcc_src}/configure \
 		${target_opts} \
-		--prefix=${install_dir} \
-		--with-sysroot=${install_dir} \
+		--prefix=${dest_pre} \
+		--with-sysroot=${dest_pre} \
 		--enable-gnu-indirect-function \
 		--with-newlib \
 		--without-headers \
@@ -181,17 +181,17 @@ build_gcc_bootstrap() {
 
 	unset BUILD_CC CC CXX AR RANLIB AS LD
 	export PATH="${path_orig}"
-	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
+	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_headers() {
 	make -C ${linux_src} -j ${cpus} \
 		ARCH=${target_arch} \
 		CROSS_COMPILE="${target_triple}-" \
-		INSTALL_HDR_PATH="${install_dir}/usr" \
+		INSTALL_HDR_PATH="${dest_pre}/usr" \
 		headers_install
 
-	find ${install_dir} -type f -ls >> ${build_dir}/headers-manifest.txt
+	find ${dest_pre} -type f -ls >> ${build_dir}/headers-manifest.txt
 }
 
 build_glibc() {
@@ -200,7 +200,7 @@ build_glibc() {
 
 	rm -rf ${dir}
 	mkdir -p ${dir}
-	export PATH="${install_dir}/bin:${path_orig}"
+	export PATH="${dest_pre}/bin:${path_orig}"
 
 	pushd ${dir}
 	${glibc_src}/configure \
@@ -210,8 +210,8 @@ build_glibc() {
 		--prefix=/usr \
 		--host=${target_triple} \
 		BUILD_CC="/usr/bin/gcc" \
-		CC="${install_dir}/bin/${target_triple}-gcc -mabi=${abi}" \
-		CXX="${install_dir}/bin/${target_triple}-g++ -mabi=${abi}" \
+		CC="${dest_pre}/bin/${target_triple}-gcc -mabi=${abi}" \
+		CXX="${dest_pre}/bin/${target_triple}-g++ -mabi=${abi}" \
 		AR=${target_triple}-ar \
 		AS=${target_triple}-as \
 		LD=${target_triple}-ld \
@@ -224,9 +224,9 @@ build_glibc() {
 	popd
 
 	make -C ${dir} -j ${cpus} all
-	make -C ${dir} DESTDIR=${install_dir} install
+	make -C ${dir} DESTDIR=${dest_pre} install
 	export PATH="${path_orig}"
-	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
+	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
 }
 
 build_gcc_final() {
@@ -235,13 +235,13 @@ build_gcc_final() {
 	rm -rf ${dir}
 	mkdir -p ${dir}
 
-	export PATH="${install_dir}/bin:${path_orig}"
+	export PATH="${dest_pre}/bin:${path_orig}"
 
 	pushd ${dir}
 	${gcc_src}/configure \
 		${target_opts} \
-		--prefix=${install_dir} \
-		--with-sysroot=${install_dir} \
+		--prefix=${dest_pre} \
+		--with-sysroot=${dest_pre} \
 		--with-multilib-list=lp64,ilp32 \
 		--enable-gnu-indirect-function \
 		--enable-languages=c,c++,fortran \
@@ -255,17 +255,28 @@ build_gcc_final() {
 	make -C ${dir} install
 
 	export PATH="${path_orig}"
-	find ${install_dir} -type f -ls >> ${dir}/manifest.txt
+	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
 }
 
-archive_sysroot() {
-	tar -C ${install_dir} -czf "${build_top}/ilp32-toolchain-${build_time}.tar.gz" .
+archive_toolchain() {
+	tar -C ${destdir} \
+		-cvzf "${build_top}/ilp32-toolchain--${build_name}.tar.gz" \
+		${prefix}
+}
+
+archive_libraries() {
+	tar -C ${destdir} \
+		-cvzf "${build_top}/ilp32-libraries--${build_name}.tar.gz" \
+		${prefix}/lib/ld-linux-aarch64_ilp32.so.1 \
+		${prefix}/libilp32 \
+		${prefix}/lib/ld-linux-aarch64.so.1 \
+		${prefix}/lib64
 }
 
 print_info() {
 	local log_file=${1}
 
-	print_gcc_info ${install_dir}/bin/${target_triple}-gcc ${log_file}
+	print_gcc_info ${dest_pre}/bin/${target_triple}-gcc ${log_file}
 }
 
 test_for_src() {
@@ -276,44 +287,39 @@ test_for_src() {
 		local checker="${n}_checker"
 
 		if [[ ! -f "${!checker}" ]]; then
-			echo -e "${name}: ERROR: Bad ${n} src: '${src_dir}'" >&2
-			echo -e "${name}: ERROR: Must set ${n}_src to root of ${n} sources." >&2
+			echo -e "${name}: ${FUNCNAME[0]}: ERROR: Bad ${n} src: '${src_dir}'" >&2
+			echo -e "${name}: ${FUNCNAME[0]}: ERROR: Must set ${n}_src to root of ${n} sources." >&2
 			usage
 			exit 1
 		fi
 	done
 }
 
-test_for_headers() {
-	if [[ ! -f ${headers_dir}/linux/netfilter.h ]]; then
-		echo -e "${name}: ERROR: Bad kernel headers: '${headers_dir}'" >&2
+test_for_file() {
+	local type=${1}
+	local file=${2}
+
+	if [[ ! -f ${file} ]]; then
+		echo -e "${name}: ${FUNCNAME[0]}: ERROR: Bad ${type}: '${file}'" >&2
 		usage
 		exit 1
 	fi
+}
+
+test_for_headers() {
+	test_for_file "kernel headers" "${headers_dir}/linux/netfilter.h"
 }
 
 test_for_binutils() {
-	local file="${install_dir}/${target_triple}/bin/ld"
-
-	if [[ ! -f ${file} ]]; then
-		echo -e "${name}: ERROR: Bad binutils: '${file}'" >&2
-		usage
-		exit 1
-	fi
+	test_for_file "binutils" "${dest_pre}/${target_triple}/bin/ld"
 }
 
 test_for_gcc() {
-	local file="${install_dir}/bin/${target_triple}-gcc"
-
-	if [[ ! -f ${file} ]]; then
-		echo -e "${name}: ERROR: Bad gcc: '${file}'" >&2
-		usage
-		exit 1
-	fi
+	test_for_file "gcc" "${dest_pre}/bin/${target_triple}-gcc"
 }
 
 test_for_glibc() {
-	echo "${FUNCNAME[0]}: TODO" >&2
+	test_for_file "glibc" "${dest_pre}/lib/ld-linux-aarch64_ilp32.so.1"
 }
 
 #===============================================================================
@@ -344,10 +350,13 @@ build_top=${build_top:-"$(pwd)"}
 build_dir=${build_dir:-"${build_top}/build"}
 src_dir=${src_dir:-"${build_top}/src"}
 
-install_dir=${install_dir:-"${build_top}/sysroot"}
-headers_dir="${install_dir}/usr/include"
+prefix=${prefix:-"/opt/ilp32"}
+destdir=${destdir:-"${build_top}/destdir"}
+dest_pre=${destdir}${prefix}
+headers_dir="${dest_pre}/usr/include"
 
-log_file=${log_file:-"${build_top}/build-${build_time}.log"}
+build_name=${build_name:-${build_time}}
+log_file=${log_file:-"${build_top}/${name}--${build_name}.log"}
 
 binutils_src="${src_dir}/binutils"
 binutils_repo="git://sourceware.org/git/binutils-gdb.git"
@@ -391,7 +400,7 @@ if [[ ${usage} ]]; then
 fi
 
 if [[ ${DESTDIR} ]]; then
-	echo "${name}: ERROR: Use --install-dir option, not DESTDIR environment variable." >&2
+	echo "${name}: ERROR: Use --destdir option, not DESTDIR environment variable." >&2
 	exit 1
 fi
 
@@ -417,18 +426,30 @@ else
 fi
 
 mkdir -p ${build_top}
-cp -vf ${BASH_SOURCE} ${build_top}/
+cp -vf ${BASH_SOURCE} ${build_top}/${name}--${build_name}.sh
 
 while true; do
 	if [[ ${step_git_clone} ]]; then
 		current_step="step_git_clone"
+
+		# FIXME: for debug
+		if [[ -d ${DEBUG_TOOLCHAIN_SRC} ]]; then
+			echo "${name}: INFO: Using DEBUG_TOOLCHAIN_SRC='${DEBUG_TOOLCHAIN_SRC}'." >&2
+			rm -rf ${src_dir}
+			cp -a --link ${DEBUG_TOOLCHAIN_SRC} ${src_dir}
+		else
+			echo "${name}: INFO: DEBUG_TOOLCHAIN_SRC not found: '${DEBUG_TOOLCHAIN_SRC}'." >&2
+			printenv
+			exit 1
+		fi
+
 		git_clone
 		unset step_git_clone
 	elif [[ ${step_binutils} ]]; then
 		current_step="step_binutils"
 		test_for_src
-		mkdir -p ${install_dir}
-		rm -rf ${install_dir}/*
+		mkdir -p ${dest_pre}
+		rm -rf ${dest_pre}/*
 		build_binutils
 		unset step_binutils
 	elif [[ ${step_gcc_bootstrap} ]]; then
@@ -468,7 +489,8 @@ while true; do
 		test_for_binutils
 		test_for_gcc
 		test_for_glibc
-		archive_sysroot
+		archive_toolchain
+		archive_libraries
 		print_info ${log_file}
 		unset step_archive
 	else

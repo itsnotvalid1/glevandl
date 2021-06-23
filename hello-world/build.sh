@@ -108,11 +108,6 @@ build_progs() {
 			set -o xtrace
 			${CC} \
 				${!gcc_opts} \
-				-c \
-				-o ${build_top}/${prog}--${abi}.o \
-				${SCRIPTS_TOP}/${prog}.c
-			${CC} \
-				${!gcc_opts} \
 				${link_extra} \
 				-DLINKAGE_dynamic \
 				-o ${build_top}/${prog}--${abi} \
@@ -136,7 +131,7 @@ run_file() {
 	for prog in ${progs}; do
 		for abi in ${abis}; do
 			local base=${build_top}/${prog}--${abi}
-			for file in ${base}.o ${base}; do
+			for file in ${base}; do
 				if [[ -f ${file} ]]; then
 					file ${file}
 				else
