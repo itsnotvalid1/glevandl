@@ -102,6 +102,30 @@ on_exit() {
 	echo "${name}: Done: ${result} ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
+docker_from() {
+	local image_type=${1}
+
+	case ${host_arch} in
+	amd64|x86_64)
+		local from_toolup="debian:buster"
+		local from_builder="debian:buster"
+		local from_runner="alpine:latest"
+		;;
+	arm64|aarch64)
+		local from_toolup="arm64v8/debian:buster"
+		local from_builder="arm64v8/debian:buster"
+		local from_runner="arm64v8/alpine:latest"
+		;;
+	*)
+		echo "${name}: ERROR: Bad arch '${host_arch}'" >&2
+		exit 1
+		;;
+	esac
+
+	local from="from_${image_type}"
+	echo "${!from}"
+}
+
 build_image() {
 	local image_type=${1}
 	local destdir=${2}
@@ -122,15 +146,18 @@ build_image() {
 		docker rmi --force ${docker_tag}
 	fi
 
-	if [[ ${image_type} != "toolup" ]]; then
-		local extra="--build-arg TOOLCHAIN_PREFIX=${prefix}"
-	fi
+	case ${image_type} in
+	runner|builder)
+		local docker_extra="--build-arg TOOLCHAIN_PREFIX=${prefix}"
+		;;
+	esac
 
 	mkdir -p ${destdir}
 	pushd ${destdir}
+
 	docker build \
-		${extra} \
-		--build-arg DOCKER_FROM=${DOCKER_FROM} \
+		${docker_extra} \
+		--build-arg DOCKER_FROM=$(docker_from ${image_type}) \
 		--file ${docker_file} \
 		--tag ${docker_tag} \
 		--network=host \
@@ -187,33 +214,28 @@ build_toolchain() {
 }
 
 build_builder() {
-	local type=builder
+	local image_type=builder
 
-	if [[ ${force} ]] || ! test_for_image ${type}; then
+	if [[ ${force} ]] || ! test_for_image ${image_type}; then
 		if [[ ${force} ]] || ! test_for_toolchain; then
 			echo "${name}: INFO: Building toolchain..." >&2
 			build_toolchain
 		fi
 		echo "${name}: INFO: Using existing toolchain." >&2
-		build_image ${type} ${toolchain_destdir} ${toolchain_prefix}
+		build_image ${image_type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
 
 build_runner() {
-	local type=runner
+	local image_type=runner
 
-	if [[ ${host_arch} != ${target_arch} ]]; then
-		echo "${name}: ERROR: ilp32-runner must be built on '${target_arch}'" >&2
-		exit 1
-	fi
-
-	if [[ ${force} ]] || ! test_for_image ${type}; then
+	if [[ ${force} ]] || ! test_for_image ${image_type}; then
 		if ! test_for_toolchain; then
 			echo "${name}: INFO: Building toolchain..." >&2
 			build_toolchain
 		fi
 		echo "${name}: INFO: Using existing toolchain." >&2
-		build_image ${type} ${toolchain_destdir} ${toolchain_prefix}
+		build_image ${image_type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
 
@@ -235,6 +257,10 @@ SECONDS=0
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
+host_arch="$(uname -m)"
+target_arch="aarch64"
+target_triple="aarch64-linux-gnu"
+
 process_opts "${@}"
 
 export HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
@@ -254,28 +280,11 @@ toolup_scripts_top="${toolup_work_dir}$(strip_current ${SCRIPTS_TOP})"
 toolup_build_top="${toolup_work_dir}$(strip_current ${build_top})"
 #toolup_sysroot="${toolup_work_dir}$(to_host ${sysroot})"
 
-host_arch="$(uname -m)"
-target_arch="aarch64"
-target_triple="aarch64-linux-gnu"
-
 if [[ -n "${usage}" ]]; then
 	usage
 	trap - EXIT
 	exit 0
 fi
-
-case ${host_arch} in
-arm64|aarch64)
-	DOCKER_FROM=${DOCKER_FROM:-"arm64v8/debian:buster"}
-	;;
-amd64|x86_64)
-	DOCKER_FROM=${DOCKER_FROM:-"debian:buster"}
-	;;
-*)
-	echo "${name}: ERROR: Bad arch '${a}'" >&2
-	exit 1
-	;;
-esac
 
 while true; do
 	if [[ ${step_toolup} ]]; then

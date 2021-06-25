@@ -9,26 +9,14 @@ ARG TOOLCHAIN_PREFIX
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
+RUN apk add --update tftp-hpa \
+	&& rm -rf /tmp/* /var/tmp/*
+
+ENV PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
+
+COPY ${TOOLCHAIN_PREFIX}/libilp32 ${TOOLCHAIN_PREFIX}/libilp32/
+COPY ${TOOLCHAIN_PREFIX}/lib/ld-linux-aarch64_ilp32.so.1 ${TOOLCHAIN_PREFIX}/lib/
+
 ENV ILP32_RUNNER 1
-
-RUN \
-	echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.list \
-	&& apt-get update \
-	&& apt-get -y upgrade \
-	&& DEBIAN_FRONTEND=noninteractive apt-get -y install \
-		apt-utils \
-		bash \
-		bash-completion \
-		bsdmainutils \
-		file \
-		net-tools \
-		strace \
-		sudo \
-		vim \
-	&& DEBIAN_FRONTEND=noninteractive apt-get -y autoremove \
-	&& rm -rf /var/lib/apt/lists/*
-
-COPY ${TOOLCHAIN_PREFIX}/libilp32 /libilp32/
-COPY ${TOOLCHAIN_PREFIX}/lib/ld-linux-aarch64_ilp32.so.1 /lib/
 
 CMD /bin/bash

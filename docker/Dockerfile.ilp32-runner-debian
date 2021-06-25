@@ -1,4 +1,4 @@
-# Container image for compiling ARM64 ILP32 kernel and user programs.
+# Container image for running ARM64 ILP32 programs.
 
 ARG DOCKER_FROM
 
@@ -17,29 +17,19 @@ RUN \
 		apt-utils \
 		bash \
 		bash-completion \
-		bc \
-		bison \
-		build-essential \
-		ccache \
+		bsdmainutils \
 		file \
-		flex \
-		git \
-		gcc-aarch64-linux-gnu \
-		libssl-dev \
 		net-tools \
-		qemu-system-aarch64 \
-		rsync \
 		strace \
-		sudo \
 		vim \
-		wget \
 	&& DEBIAN_FRONTEND=noninteractive apt-get -y autoremove \
 	&& rm -rf /var/lib/apt/lists/*
 
 ENV PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"
 
-COPY . /
+COPY ${TOOLCHAIN_PREFIX}/libilp32 ${TOOLCHAIN_PREFIX}/libilp32/
+COPY ${TOOLCHAIN_PREFIX}/lib/ld-linux-aarch64_ilp32.so.1 ${TOOLCHAIN_PREFIX}/lib/
 
-ENV ILP32_BUILDER 1
+ENV ILP32_RUNNER 1
 
 CMD /bin/bash
