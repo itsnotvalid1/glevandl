@@ -117,13 +117,28 @@ docker_from() {
 		local from_runner="arm64v8/alpine:latest"
 		;;
 	*)
-		echo "${name}: ERROR: Bad arch '${host_arch}'" >&2
+		echo "${name}: ERROR: Bad host arch '${host_arch}'" >&2
 		exit 1
 		;;
 	esac
 
 	local from="from_${image_type}"
 	echo "${!from}"
+}
+
+docker_tag_extra() {
+	case ${host_arch} in
+	amd64|x86_64)
+		echo ""
+		;;
+	arm64|aarch64)
+		echo "-arm64"
+		;;
+	*)
+		echo "${name}: ERROR: Bad hos arch '${host_arch}'" >&2
+		exit 1
+		;;
+	esac
 }
 
 build_image() {
@@ -133,7 +148,7 @@ build_image() {
 
 	local version=${VERSION:-"1"}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
-	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}"}
+	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}$(docker_tag_extra)"}
 	local docker_file=${DOCKER_FILE:-"${docker_top}/Dockerfile.${docker_name}"}
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
@@ -171,7 +186,7 @@ test_for_image() {
 
 	local version=${VERSION:-"1"}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
-	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}"}
+	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}$(docker_tag_extra)"}
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
 		echo "${name}: INFO: Docker image exists: ${docker_tag}" >&2

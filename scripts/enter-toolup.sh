@@ -83,6 +83,21 @@ on_exit() {
 	echo "${name}: Done: ${result}" >&2
 }
 
+docker_tag_extra() {
+	case ${host_arch} in
+	amd64|x86_64)
+		echo ""
+		;;
+	arm64|aarch64)
+		echo "-arm64"
+		;;
+	*)
+		echo "${name}: ERROR: Bad hos arch '${host_arch}'" >&2
+		exit 1
+		;;
+	esac
+}
+
 #===============================================================================
 # program start
 #===============================================================================
@@ -103,7 +118,7 @@ process_opts "${@}"
 
 VERSION=${VERSION:-"1"}
 DOCKER_NAME=${DOCKER_NAME:-"ilp32-${image_type}"}
-DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}"}
+DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}$(docker_tag_extra)"}
 
 HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
 ILP32_WORK_DIR=${ILP32_WORK_DIR:-"/ilp32"}
