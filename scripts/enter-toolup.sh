@@ -92,7 +92,7 @@ docker_tag_extra() {
 		echo "-arm64"
 		;;
 	*)
-		echo "${name}: ERROR: Bad hos arch '${host_arch}'" >&2
+		echo "${name}: ERROR: Bad host arch '${host_arch}'" >&2
 		exit 1
 		;;
 	esac
@@ -113,6 +113,10 @@ set -e
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
+
+host_arch="$(uname -m)"
+target_arch="aarch64"
+target_triple="aarch64-linux-gnu"
 
 process_opts "${@}"
 
