@@ -65,6 +65,22 @@ on_exit() {
 	echo "${name}: Done: ${result}" >&2
 }
 
+get_arch() {
+	local a=${1}
+
+	case "${a}" in
+	arm64|aarch64)			echo "arm64" ;;
+	amd64|x86_64)			echo "amd64" ;;
+	ppc|powerpc|ppc32|powerpc32)	echo "ppc32" ;;
+	ppc64|powerpc64)		echo "ppc64" ;;
+	ppc64le|powerpc64le)		echo "ppc64le" ;;
+	*)
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		exit 1
+		;;
+	esac
+}
+
 check_tools() {
 	local prefix=${1}
 
@@ -146,7 +162,7 @@ run_ld_so() {
 	local prog
 	local abi
 
-	if [[ ${host_arch} != "aarch64" ]]; then
+	if [[ ${host_arch} != "arm64" ]]; then
 		return
 	fi
 
@@ -222,7 +238,7 @@ SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 
 process_opts "${@}"
 
-host_arch="$(uname -m)"
+host_arch=$(get_arch $(uname -m))
 build_top=${build_top:-"$(pwd)"}
 
 if [[ -n "${usage}" ]]; then

@@ -105,40 +105,16 @@ on_exit() {
 docker_from() {
 	local image_type=${1}
 
-	case ${host_arch} in
-	amd64|x86_64)
-		local from_toolup="debian:buster"
-		local from_builder="debian:buster"
-		local from_runner="alpine:latest"
-		;;
-	arm64|aarch64)
-		local from_toolup="arm64v8/debian:buster"
-		local from_builder="arm64v8/debian:buster"
-		local from_runner="arm64v8/alpine:latest"
-		;;
-	*)
-		echo "${name}: ERROR: Bad host arch '${host_arch}'" >&2
-		exit 1
-		;;
-	esac
+	local from_amd64_toolup="debian:buster"
+	local from_amd64_builder="debian:buster"
+	local from_amd64_runner="alpine:latest"
 
-	local from="from_${image_type}"
+	local from_arm64_toolup="arm64v8/debian:buster"
+	local from_arm64_builder="arm64v8/debian:buster"
+	local from_arm64_runner="arm64v8/alpine:latest"
+
+	local from="from_${host_arch}_${image_type}"
 	echo "${!from}"
-}
-
-docker_tag_extra() {
-	case ${host_arch} in
-	amd64|x86_64)
-		echo ""
-		;;
-	arm64|aarch64)
-		echo "-arm64"
-		;;
-	*)
-		echo "${name}: ERROR: Bad hos arch '${host_arch}'" >&2
-		exit 1
-		;;
-	esac
 }
 
 build_image() {
@@ -148,7 +124,7 @@ build_image() {
 
 	local version=${VERSION:-"1"}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
-	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}$(docker_tag_extra)"}
+	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}-${host_arch}"}
 	local docker_file=${DOCKER_FILE:-"${docker_top}/Dockerfile.${docker_name}"}
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
@@ -186,7 +162,7 @@ test_for_image() {
 
 	local version=${VERSION:-"1"}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
-	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}$(docker_tag_extra)"}
+	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}-${host_arch}"}
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
 		echo "${name}: INFO: Docker image exists: ${docker_tag}" >&2
@@ -272,8 +248,8 @@ SECONDS=0
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
-host_arch="$(uname -m)"
-target_arch="aarch64"
+host_arch=$(get_arch $(uname -m))
+target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
 
 process_opts "${@}"

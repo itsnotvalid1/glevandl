@@ -83,21 +83,6 @@ on_exit() {
 	echo "${name}: Done: ${result}" >&2
 }
 
-docker_tag_extra() {
-	case ${host_arch} in
-	amd64|x86_64)
-		echo ""
-		;;
-	arm64|aarch64)
-		echo "-arm64"
-		;;
-	*)
-		echo "${name}: ERROR: Bad host arch '${host_arch}'" >&2
-		exit 1
-		;;
-	esac
-}
-
 #===============================================================================
 # program start
 #===============================================================================
@@ -114,15 +99,15 @@ set -e
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
-host_arch="$(uname -m)"
-target_arch="aarch64"
+host_arch=$(get_arch "$(uname -m)")
+target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
 
 process_opts "${@}"
 
 VERSION=${VERSION:-"1"}
 DOCKER_NAME=${DOCKER_NAME:-"ilp32-${image_type}"}
-DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}$(docker_tag_extra)"}
+DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}-${host_arch}"}
 
 HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
 ILP32_WORK_DIR=${ILP32_WORK_DIR:-"/ilp32"}

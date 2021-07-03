@@ -1,0 +1,14 @@
+image: {user}/{image}:{tag}
+tags: ['{tag-1}','latest']
+manifests:
+ -
+   image: {user}/{image}:${tag}-arm64
+   platform:
+     architecture: arm64
+     variant: v8
+     os: linux
+ -
+   image: {user}/{image}:{tag}-amd64
+   platform:
+     architecture: amd64
+     os: linux

@@ -104,8 +104,8 @@ builder_work_dir="$(${SCRIPTS_TOP}/enter-builder.sh --print-work-dir)"
 builder_src_top="${builder_work_dir}$(strip_current ${src_top})"
 builder_build_top="${builder_work_dir}$(strip_current ${build_top})"
 
-host_arch="$(uname -m)"
-target_arch="aarch64"
+host_arch=$(get_arch "$(uname -m)")
+target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
 
 if [[ -n "${usage}" ]]; then
