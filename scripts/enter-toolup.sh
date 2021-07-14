@@ -139,6 +139,7 @@ fi
 
 if [ ${ILP32_BUILDER} ]; then
 	echo "${name}: ERROR: Already in ilp32-builder container." >&2
+	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
 	exit 1
 fi
 

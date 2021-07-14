@@ -3,12 +3,13 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build program images." >&2
+	echo "${name} - Build ilp32 test program images." >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help   - Show this help and exit." >&2
-	echo "  --build-top - Top build directory. Default: '${build_top}'." >&2
 	echo "  --src-top   - Top source directory. Default: '${src_top}'." >&2
+	echo "  --test-name - Test name. Guessed: '${test_name_guessed}', Default: '${test_name}'." >&2
+	echo "  --build-top - Top build directory. Default: '${build_top}'." >&2
 	echo "  --prefix    - Toolchain prefix. Default: '${prefix}'." >&2
 	echo "Environment:" >&2
 	echo "  HOST_WORK_DIR       - Default: '${HOST_WORK_DIR}'" >&2
@@ -17,7 +18,7 @@ usage () {
 
 process_opts() {
 	local short_opts="h"
-	local long_opts="help,build-top:,src-top:,prefix:"
+	local long_opts="help,src-top:,test-name:,build-top:,prefix:"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -31,12 +32,16 @@ process_opts() {
 			usage=1
 			shift
 			;;
-		--build-top)
-			build_top="${2}"
-			shift 2
-			;;
 		--src-top)
 			src_top="${2}"
+			shift 2
+			;;
+		--test-name)
+			test_name="${2}"
+			shift 2
+			;;
+		--build-top)
+			build_top="${2}"
 			shift 2
 			;;
 		--prefix)
@@ -71,7 +76,7 @@ on_exit() {
 #===============================================================================
 # program start
 #===============================================================================
-export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
+export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 set -x
 
 name="${0##*/}"
@@ -89,8 +94,6 @@ process_opts "${@}"
 HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
 CURRENT_WORK_DIR=${CURRENT_WORK_DIR:-"${HOST_WORK_DIR}"}
 
-build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/auto-build/hello-world"})"
-
 docker_top=${docker_top:-"$(cd "${SCRIPTS_TOP}/../docker" && pwd)"}
 
 check_opt 'prefix' ${prefix}
@@ -98,6 +101,11 @@ check_opt 'prefix' ${prefix}
 check_opt 'src-top' ${src_top}
 check_directory ${src_top}
 src_top="$(realpath -e ${src_top})"
+
+test_name_guessed="${src_top##*/}"
+test_name=${test_name:-"${test_name_guessed}"}
+
+build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/auto-build/${test_name}"})"
 
 builder_work_dir="$(${SCRIPTS_TOP}/enter-builder.sh --print-work-dir)"
 
@@ -116,7 +124,7 @@ fi
 
 ${SCRIPTS_TOP}/enter-builder.sh \
 	--verbose \
-	--container-name=build-hello-world--$(date +%H-%M-%S) \
+	--container-name=build-${test_name}--$(date +%H-%M-%S) \
 	-- ${builder_src_top}/build.sh \
 		--verbose \
 		--build-top=${builder_build_top} \
