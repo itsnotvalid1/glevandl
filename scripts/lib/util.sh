@@ -384,6 +384,19 @@ git_checkout_force() {
 	git -C ${dir} pull
 }
 
+run_shellcheck() {
+	local file=${1}
+
+	shellcheck=${shellcheck:-"shellcheck"}
+
+	if ! test -x "$(command -v "${shellcheck}")"; then
+		echo "${name}: ERROR: Please install '${shellcheck}'." >&2
+		exit 1
+	fi
+
+	${shellcheck} "${file}"
+}
+
 if [[ ${PS4} == '+ ' ]]; then
 	if [[ ${JENKINS_URL} ]]; then
 		export PS4='+ [${STAGE_NAME}] \${BASH_SOURCE##*/}:\${LINENO}: '
