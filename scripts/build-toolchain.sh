@@ -432,17 +432,13 @@ while true; do
 	if [[ ${step_git_clone} ]]; then
 		current_step="step_git_clone"
 
-		# FIXME: for debug
-		if [[ -d ${DEBUG_TOOLCHAIN_SRC} ]]; then
+		if [[ ${DEBUG_TOOLCHAIN_SRC} && -d ${DEBUG_TOOLCHAIN_SRC} ]]; then
 			echo "${name}: INFO: Using DEBUG_TOOLCHAIN_SRC='${DEBUG_TOOLCHAIN_SRC}'." >&2
 			rm -rf ${src_dir}
 			cp -a --link ${DEBUG_TOOLCHAIN_SRC} ${src_dir}
 		else
 			echo "${name}: INFO: DEBUG_TOOLCHAIN_SRC not found: '${DEBUG_TOOLCHAIN_SRC}'." >&2
-			printenv
-			exit 1
 		fi
-
 		git_clone
 		unset step_git_clone
 	elif [[ ${step_binutils} ]]; then
