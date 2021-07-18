@@ -6,14 +6,16 @@ usage () {
 	echo "${name} - Build toolchain." >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
-	echo "  -h --help                 - Show this help and exit." >&2
-	echo "  --build-top   <directory> - Top build directory. Default: '${build_top}'." >&2
-	echo "  --destdir <directory>     - Install destdir directory. Default: '${destdir}'." >&2
-	echo "  --prefix  <directory>     - Install prefix. Default: '${prefix}'." >&2
+	echo "  -c --check    - Run shellcheck." >&2
+	echo "  -h --help     - Show this help and exit." >&2
+	echo "  --config-file - Config file. Default: '${config_file}'." >&2
+	echo "  --build-top   - Top build directory. Default: '${build_top}'." >&2
+	echo "  --destdir     - Install destdir directory. Default: '${destdir}'." >&2
+	echo "  --prefix      - Install prefix. Default: '${prefix}'." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --git-clone     - Clone git repos." >&2
 	echo "  -2 --binutils      - Build binutils." >&2
-	echo "  -3 --gcc-bootstrap - Bild bootstrap gcc." >&2
+	echo "  -3 --gcc-bootstrap - Build bootstrap gcc." >&2
 	echo "  -4 --headers       - Build Linux headers." >&2
 	echo "  -5 --glibc-lp64    - Build glibc_lp64." >&2
 	echo "  -6 --glibc-ilp32   - Build glibc_ilp32." >&2
@@ -23,9 +25,9 @@ usage () {
 }
 
 process_opts() {
-	local short_opts="h12345678"
-	local long_opts="help,\
-build-top:,destdir:,prefix:,\
+	local short_opts="ch12345678"
+	local long_opts="check,help,\
+config-file:,build-top:,destdir:,prefix:,\
 git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archive"
 
 	local opts
@@ -42,9 +44,17 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archiv
 	while true ; do
 		#echo "${FUNCNAME[0]}: @${1}@ @${2}@"
 		case "${1}" in
+		-c | --check)
+			check=1
+			shift
+			;;
 		-h | --help)
 			usage=1
 			shift
+			;;
+		--config-file)
+			config_file="${2}"
+			shift 2
 			;;
 		--build-top)
 			build_top="${2}"
@@ -345,6 +355,20 @@ process_opts "${@}"
 cpus=$(cpu_count)
 path_orig="${PATH}"
 
+binutils_branch_release="binutils-2_32"
+gcc_branch_release="gcc-9_2_0-release"
+glibc_branch_release="arm/ilp32"
+linux_branch_release="staging/ilp32-5.1"
+
+binutils_branch_stable="binutils-2_32-branch"
+gcc_branch_stable="gcc-9-branch"
+glibc_branch_stable="arm/ilp32"
+linux_branch_stable="staging/ilp32-5.1"
+
+if [[ ${config_file} && -f ${config_file} ]]; then
+	source ${config_file}
+fi
+
 build_top=${build_top:-"$(pwd)"}
 
 build_dir=${build_dir:-"${build_top}/build"}
@@ -358,44 +382,40 @@ headers_dir="${dest_pre}/usr/include"
 build_name=${build_name:-${build_time}}
 log_file=${log_file:-"${build_top}/${name}--${build_name}.log"}
 
-binutils_src="${src_dir}/binutils"
-binutils_repo="git://sourceware.org/git/binutils-gdb.git"
-binutils_branch="master"
-binutils_checker="${binutils_src}/bfd/elfxx-aarch64.c"
+binutils_src=${binutils_src:-"${src_dir}/binutils"}
+binutils_repo=${binutils_repo:-"git://sourceware.org/git/binutils-gdb.git"}
+binutils_branch=${binutils_branch:-"master"}
+binutils_checker=${binutils_checker:-"${binutils_src}/bfd/elfxx-aarch64.c"}
 
-gcc_src="${src_dir}/gcc"
-gcc_repo="git://gcc.gnu.org/git/gcc.git"
-gcc_branch="master"
-gcc_checker="${gcc_src}/libgcc/memcpy.c"
+gcc_src=${gcc_src:-"${src_dir}/gcc"}
+gcc_repo=${gcc_repo:-"git://gcc.gnu.org/git/gcc.git"}
+gcc_branch=${gcc_branch:-"master"}
+gcc_checker=${gcc_checker:-"${gcc_src}/libgcc/memcpy.c"}
 
-glibc_src="${src_dir}/glibc"
-glibc_repo="git://sourceware.org/git/glibc.git"
-glibc_branch="arm/ilp32"
-glibc_checker="${glibc_src}/elf/global.c"
+glibc_src=${glibc_src:-"${src_dir}/glibc"}
+glibc_repo=${glibc_repo:-"git://sourceware.org/git/glibc.git"}
+glibc_branch=${glibc_branch:-"arm/ilp32"}
+glibc_checker=${glibc_checker:-"${glibc_src}/elf/global.c"}
 
-linux_src="${src_dir}/linux"
-linux_repo="https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git"
-linux_branch="staging/ilp32-5.1"
-linux_checker="${linux_src}/lib/bitmap.c"
+linux_src=${linux_src:-"${src_dir}/linux"}
+linux_repo=${linux_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git"}
+linux_branch=${linux_branch:-"staging/ilp32-5.1"}
+linux_checker=${linux_checker:-"${linux_src}/lib/bitmap.c"}
 
-binutils_branch_release="binutils-2_32"
-gcc_branch_release="gcc-9_2_0-release"
-glibc_branch_release="arm/ilp32"
-linux_branch_release="staging/ilp32-5.1"
-
-binutils_branch_stable="binutils-2_32-branch"
-gcc_branch_stable="gcc-9-branch"
-glibc_branch_stable="arm/ilp32"
-linux_branch_stable="staging/ilp32-5.1"
-
-binutils_branch=${binutils_branch_stable}
-gcc_branch=${gcc_branch_stable}
-glibc_branch=${glibc_branch_stable}
-linux_branch=${linux_branch_stable}
+binutils_branch=${binutils_branch:-${binutils_branch_stable}}
+gcc_branch=${gcc_branch:-${gcc_branch_stable}}
+glibc_branch=${glibc_branch:-${glibc_branch_stable}}
+linux_branch=${linux_branch:-${linux_branch_stable}}
 
 if [[ ${usage} ]]; then
 	usage
 	trap - EXIT
+	exit 0
+fi
+
+if [[ ${check} ]]; then
+	run_shellcheck "${0}"
+	trap "on_exit 'Success'" EXIT
 	exit 0
 fi
 
