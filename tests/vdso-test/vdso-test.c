@@ -17,6 +17,23 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#if defined(LINKAGE_static)
+	static const char linkage[] = "static";
+#elif defined(LINKAGE_dynamic)
+	static const char linkage[] = "dynamic";
+#else
+	static const char linkage[] = "unknown";
+#endif
+
+#if defined(_LP64)
+	static const char abi[] = "LP64";
+#else
+	static const char abi[] = "ILP32";
+#endif
+
+static const char linkage_abi_fmt[] = "[%s-%s]";
+static char linkage_abi[sizeof(linkage) + sizeof(abi) + sizeof(linkage_abi_fmt)];
+
 /*
  * int clock_getres(clockid_t clk_id, struct timespec *res);
  * int clock_gettime(clockid_t clk_id, struct timespec *tp);
@@ -41,13 +58,13 @@ static int test_clock_getres(const struct clock *p)
 	result = clock_getres(p->clk, &ts);
 
 	if (result) {
-		printf("%s: %s failed: %s (%d)\n", __func__, p->name,
-			strerror(errno), errno);
+		printf("%s %s: %s failed: %s (%d)\n", linkage_abi,
+			__func__, p->name, strerror(errno), errno);
 		return 1;
 	}
 
-	printf("%s: %s: %llu sec, %ld ns\n", __func__, p->name,
-		(unsigned long long int)ts.tv_sec, ts.tv_nsec);
+	printf("%s %s: %s: %llu sec, %ld ns\n", linkage_abi, __func__,
+		p->name, (unsigned long long int)ts.tv_sec, ts.tv_nsec);
 
 	return 0;
 }
@@ -60,13 +77,13 @@ static int test_clock_gettime(const struct clock *p)
 	result = clock_gettime(p->clk, &ts);
 
 	if (result) {
-		printf("%s: %s failed: %s (%d)\n", __func__, p->name,
-			strerror(errno), errno);
+		printf("%s %s: %s failed: %s (%d)\n", linkage_abi,
+			__func__, p->name, strerror(errno), errno);
 		return 1;
 	}
 
-	printf("%s: %s: %llu sec, %ld ns\n", __func__, p->name,
-		(unsigned long long int)ts.tv_sec, ts.tv_nsec);
+	printf("%s %s: %s: %llu sec, %ld ns\n", linkage_abi, __func__,
+		p->name, (unsigned long long int)ts.tv_sec, ts.tv_nsec);
 
 	return 0;
 }
@@ -119,11 +136,12 @@ static int test_gettimeofday(void)
 	result = gettimeofday(&tv, NULL);
 
 	if (result) {
-		printf("%s: failed: %s (%d)\n", __func__, strerror(errno), errno);
+		printf("%s %s: failed: %s (%d)\n", linkage_abi, __func__,
+			strerror(errno), errno);
 		return 1;
 	}
 
-	printf("%s: %llu sec, %ld ms\n\n", __func__,
+	printf("%s %s: %llu sec, %ld ms\n\n", linkage_abi , __func__,
 		(unsigned long long int)tv.tv_sec, tv.tv_usec);
 
 	return 0;
@@ -144,6 +162,20 @@ static void SIGALRM_handler(int __attribute__((unused)) signum)
 	alarm_event = 1;
 }
 
+static void alpha_print(char c, unsigned limit)
+{
+	int i;
+
+	for(i = 0; i < limit; i++) {
+		fprintf(stderr, "%c", c + i);
+		fflush(stderr);
+		if (alarm_event) {
+			return;
+		}
+	}
+
+}
+
 static int test_sigreturn(void)
 {
 	__sighandler_t result;
@@ -151,48 +183,50 @@ static int test_sigreturn(void)
 	result = signal(SIGALRM, SIGALRM_handler);
 
 	if (result == SIG_ERR) {
-		printf("%s: failed: %s (%d)\n", __func__, strerror(errno),
-			errno);
+		printf("%s %s: failed: %s (%d)\n", linkage_abi,
+			__func__, strerror(errno), errno);
 		return 1;
 	}
 
-	printf("\n%s: start\n", __func__);
+	printf("\n%s %s: start\n", linkage_abi, __func__);
 	fflush(stdout);
 
 	alarm_event = 0;
 	alarm(1);
 
-	while (!alarm_event) {
-		fprintf(stderr, ".");
+	for(int i = 0; !alarm_event; i++) {
+		fprintf(stderr, "%i: ", i);
+
+		alpha_print('a', 26);
+		if (alarm_event)
+			break;
+
+		alpha_print('a', 26);
+		if (alarm_event)
+			break;
+
+		alpha_print('0', 10);
+		if (alarm_event)
+			break;
+
+		fprintf(stderr, "\n");
 		fflush(stderr);
 	}
 
 	signal(SIGALRM, SIG_DFL);
 
-	printf("\n%s: done\n\n", __func__);
+	printf("\n%s %s: done\n\n", linkage_abi, __func__);
 	
 	return 0;
 }
-
-#if defined(LINKAGE_static)
-	static const char linkage[] = "static";
-#elif defined(LINKAGE_dynamic)
-	static const char linkage[] = "dynamic";
-#else
-	static const char linkage[] = "unknown";
-#endif
-
-#if defined(_LP64)
-	static const char abi[] = "LP64";
-#else
-	static const char abi[] = "ILP32";
-#endif
 
 int main(void)
 {
 	int error_count = 0;
 
-	printf("-- tests start [%s %s] --\n", linkage, abi);
+	snprintf(linkage_abi, sizeof(linkage_abi), linkage_abi_fmt, linkage, abi);
+
+	printf("%s -- tests start --\n", linkage_abi);
 
 	fflush(stdout);
 	sleep(1);
@@ -201,8 +235,8 @@ int main(void)
 	error_count += test_gettimeofday() ? 1 : 0;
 	error_count += test_sigreturn() ? 1 : 0;
 
-	printf("%d tests failed. \n", error_count);
-	printf("-- tests end [%s %s] --\n", linkage, abi);
+	printf("%s %d tests failed.\n", linkage_abi, error_count);
+	printf("%s -- tests end --\n", linkage_abi);
 
 	return error_count ? EXIT_FAILURE : EXIT_SUCCESS;
 }
