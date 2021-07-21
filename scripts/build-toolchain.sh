@@ -21,6 +21,8 @@ usage () {
 	echo "  -6 --glibc-ilp32   - Build glibc_ilp32." >&2
 	echo "  -7 --gcc-final     - Build final gcc." >&2
 	echo "  -8 --archive       - Create toolchain archive files." >&2
+	echo "Environment:" >&2
+	echo "  DEBUG_TOOLCHAIN_SRC - Default: '${DEBUG_TOOLCHAIN_SRC}'." >&2
 	eval "${old_xtrace}"
 }
 

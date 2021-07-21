@@ -240,6 +240,7 @@ process_opts "${@}"
 
 host_arch=$(get_arch $(uname -m))
 build_top=${build_top:-"$(pwd)"}
+prefix=${prefix:-"/opt/ilp32"}
 
 if [[ -n "${usage}" ]]; then
 	usage
