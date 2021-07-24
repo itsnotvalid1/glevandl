@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build lp64 and ilp32 hello-world programs." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Build lp64 and ilp32 hello-world programs." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
+	echo "  -c --check              - Run shellcheck." >&2
 	echo "  -h --help               - Show this help and exit." >&2
 	echo "  -v --verbose            - Verbose execution." >&2
 	echo "  --build-top <directory> - Top build directory. Default: '${build_top}'." >&2
@@ -14,17 +16,21 @@ usage () {
 }
 
 process_opts() {
-	local short_opts="hv"
-	local long_opts="help,verbose,build-top:,prefix:"
+	local short_opts="chv"
+	local long_opts="check,help,verbose,build-top:,prefix:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "${@}")
 
 	eval set -- "${opts}"
 
 	while true ; do
 		#echo "${FUNCNAME[0]}: @${1}@ @${2}@"
 		case "${1}" in
+		-c | --check)
+			check=1
+			shift
+			;;
 		-h | --help)
 			usage=1
 			shift
@@ -45,13 +51,13 @@ process_opts() {
 		--)
 			shift
 			if [[ ${1} ]]; then
-				echo "${name}: ERROR: Extra args found: '${@}'" >&2
+				echo "${script_name}: ERROR: Extra args found: '${*}'" >&2
 				usage=1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${*}'" >&2
 			exit 1
 			;;
 		esac
@@ -62,7 +68,20 @@ on_exit() {
 	local result=${1}
 
 	set +x
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
+}
+
+run_shellcheck() {
+	local file=${1}
+
+	shellcheck=${shellcheck:-"shellcheck"}
+
+	if ! test -x "$(command -v "${shellcheck}")"; then
+		echo "${name}: ERROR: Please install '${shellcheck}'." >&2
+		exit 1
+	fi
+
+	${shellcheck} "${file}"
 }
 
 get_arch() {
@@ -75,7 +94,7 @@ get_arch() {
 	ppc64|powerpc64)		echo "ppc64" ;;
 	ppc64le|powerpc64le)		echo "ppc64le" ;;
 	*)
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
 		exit 1
 		;;
 	esac
@@ -85,30 +104,30 @@ check_tools() {
 	local prefix=${1}
 
 	if [[ ! ${prefix} ]]; then
-		echo "${name}: ERROR: Must provide --prefix option." >&2
+		echo "${script_name}: ERROR: Must provide --prefix option." >&2
 		usage
 		exit 1
 	fi
 
 	if ! test -x "$(command -v ${CC})"; then
-		echo "${name}: ERROR: Bad compiler: '${CC}'." >&2
+		echo "${script_name}: ERROR: Bad compiler: '${CC}'." >&2
 		usage
 		exit 1
 	fi
 	if [[ ! -f ${prefix}/lib/ld-linux-aarch64_ilp32.so.1 ]]; then
-		echo "${name}: ERROR: Bad ld: '${prefix}/lib/ld-linux-aarch64_ilp32.so.1'." >&2
+		echo "${script_name}: ERROR: Bad ld: '${prefix}/lib/ld-linux-aarch64_ilp32.so.1'." >&2
 		usage
 		exit 1
 	fi
 	if [[ ! -d ${prefix}/libilp32 ]]; then
-		echo "${name}: ERROR: Bad libilp32: '${prefix}/libilp32'." >&2
+		echo "${script_name}: ERROR: Bad libilp32: '${prefix}/libilp32'." >&2
 		usage
 		exit 1
 	fi
 	if ! test -x "$(command -v ${OBJDUMP})"; then
 		OBJDUMP="${prefix}/bin/objdump"
 		if ! test -x "$(command -v ${OBJDUMP})"; then
-			echo "${name}: INFO: objdump not found." >&2
+			echo "${script_name}: INFO: objdump not found." >&2
 			unset OBJDUMP
 		fi
 	fi
@@ -151,7 +170,7 @@ run_file() {
 				if [[ -f ${file} ]]; then
 					file ${file}
 				else
-					echo "${name}: INFO: ${file} not built." >&2
+					echo "${script_name}: INFO: ${file} not built." >&2
 				fi
 			done
 		done
@@ -174,7 +193,7 @@ run_ld_so() {
 			if [[ -f ${file} ]]; then
 				${!ld_so} --list ${file} || :
 			else
-				echo "${name}: INFO: ${file} not built." >&2
+				echo "${script_name}: INFO: ${file} not built." >&2
 			fi
 		done
 	done
@@ -197,7 +216,7 @@ run_objdump() {
 					#${OBJDUMP} --dynamic-syms ${file}
 					#${OBJDUMP} --dynamic-reloc ${file}
 				else
-					echo "${name}: INFO: ${file} not built." >&2
+					echo "${script_name}: INFO: ${file} not built." >&2
 				fi
 			done
 		done
@@ -206,7 +225,7 @@ run_objdump() {
 
 archive_libs() {
 	local name="ilp32-libraries"
-	local dir="${build_top}/${name}"
+	local dir="${build_top}/${script_name}"
 
 	mkdir -p ${dir}/${prefix}/lib/
 
@@ -220,7 +239,7 @@ archive_libs() {
 	echo "$(uname -a)" >> ${dir}/${prefix}/info.txt
 	echo "$(${CC} --version)" >> ${dir}/${prefix}/info.txt
 
-	#tar -C ${dir} -cvzf ${build_top}/${name}.tar.gz ${prefix#/}
+	#tar -C ${dir} -cvzf ${build_top}/${script_name}.tar.gz ${prefix#/}
 }
 
 #===============================================================================
@@ -228,7 +247,7 @@ archive_libs() {
 #===============================================================================
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 
-name="${0##*/}"
+script_name="${0##*/}"
 build_time="$(date +%Y.%m.%d-%H.%M.%S)"
 
 trap "on_exit 'failed.'" EXIT
@@ -245,6 +264,12 @@ prefix=${prefix:-"/opt/ilp32"}
 if [[ -n "${usage}" ]]; then
 	usage
 	trap - EXIT
+	exit 0
+fi
+
+if [[ ${check} ]]; then
+	run_shellcheck "${0}"
+	trap "on_exit 'Success'" EXIT
 	exit 0
 fi
 
