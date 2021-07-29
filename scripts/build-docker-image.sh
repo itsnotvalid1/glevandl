@@ -194,10 +194,12 @@ build_toolchain() {
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
 		--docker-args="\
+			-v ${builder_top}:${toolup_builder_top} \
+			-v ${build_top}:${toolup_build_top} \
 			-v "$(to_host ${toolchain_dest_pre})":${toolchain_prefix} \
 			-e DEBUG_TOOLCHAIN_SRC \
 		" \
-		-- ${toolup_scripts_top}/build-toolchain.sh \
+		-- ${toolup_builder_top}/scripts/build-toolchain.sh \
 			--build-top=${toolup_build_top} \
 			--destdir="/" \
 			--prefix=${toolchain_prefix} \
@@ -263,19 +265,20 @@ toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}
 toolchain_dest_pre="${toolchain_destdir}${toolchain_prefix}"
 
-docker_top=${docker_top:-"$(cd "${SCRIPTS_TOP}/../docker" && pwd)"}
-
-toolup_work_dir="$(${SCRIPTS_TOP}/enter-toolup.sh --print-work-dir)"
-
-toolup_scripts_top="${toolup_work_dir}$(strip_current ${SCRIPTS_TOP})"
-toolup_build_top="${toolup_work_dir}$(strip_current ${build_top})"
-#toolup_sysroot="${toolup_work_dir}$(to_host ${sysroot})"
-
 if [[ -n "${usage}" ]]; then
 	usage
 	trap - EXIT
 	exit 0
 fi
+
+builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
+docker_top=${docker_top:-"${builder_top}/docker"}
+
+toolup_work_dir="$(${SCRIPTS_TOP}/enter-toolup.sh --print-work-dir)"
+
+#toolup_scripts_top="${toolup_work_dir}${SCRIPTS_TOP#*${toolup_work_dir}}"
+toolup_builder_top="${toolup_work_dir}${builder_top#*${toolup_work_dir}}"
+toolup_build_top="${toolup_work_dir}${build_top#*${toolup_work_dir}}"
 
 while true; do
 	if [[ ${step_toolup} ]]; then

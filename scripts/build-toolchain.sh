@@ -120,7 +120,6 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archiv
 
 on_exit() {
 	local result=${1}
-
 	local end_time=${SECONDS}
 
 	set +x
@@ -128,6 +127,13 @@ on_exit() {
 		echo "${name}: current_step = ${current_step}" >&2
 	fi
 	echo "${name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+}
+
+print_git_info() {
+	local repo=${1}
+
+	git -C ${repo} rev-parse HEAD
+	git -C ${repo} show --oneline --no-patch 
 }
 
 git_clone() {
@@ -138,6 +144,22 @@ git_clone() {
 	popd
 	git_checkout_safe ${glibc_src} ${glibc_repo} "${glibc_branch}"
 	git_checkout_safe ${linux_src} ${linux_repo} "${linux_branch}"
+
+	{
+		echo "--- git info ---"
+		echo "${binutils_repo}:${binutils_branch}"
+		print_git_info ${binutils_src}
+		echo ""
+		echo "${gcc_repo}:${gcc_branch}"
+		print_git_info ${gcc_src}
+		echo ""
+		echo "${glibc_repo}:${glibc_branch}"
+		print_git_info ${glibc_src}
+		echo ""
+		echo "${linux_repo}:${linux_branch}"
+		print_git_info ${linux_src}
+		echo "-------------------------"
+	} | tee --append ${log_file}
 }
 
 build_binutils() {
@@ -271,18 +293,34 @@ build_gcc_final() {
 }
 
 archive_toolchain() {
-	tar -C ${destdir} \
-		-cvzf "${build_top}/ilp32-toolchain--${build_name}.tar.gz" \
-		${prefix}
+	tar -cvzf "${build_top}/ilp32-toolchain--${build_name}.tar.gz" \
+		-C ${destdir} ${prefix#/}
 }
 
 archive_libraries() {
-	tar -C ${destdir} \
-		-cvzf "${build_top}/ilp32-libraries--${build_name}.tar.gz" \
-		${prefix}/lib/ld-linux-aarch64_ilp32.so.1 \
-		${prefix}/libilp32 \
-		${prefix}/lib/ld-linux-aarch64.so.1 \
-		${prefix}/lib64
+	tar -cvzf "${build_top}/ilp32-libraries--${build_name}.tar.gz" \
+		-C ${destdir} \
+		${prefix#/}/lib/ld-linux-aarch64_ilp32.so.1 \
+		${prefix#/}/libilp32 \
+		${prefix#/}/lib/ld-linux-aarch64.so.1 \
+		${prefix#/}/lib64
+}
+
+print_branch_info() {
+	local log_file=${1}
+
+	{
+		echo "--- branch info ---"
+		echo "binutils_repo   = ${binutils_repo}"
+		echo "binutils_branch = ${binutils_branch}"
+		echo "gcc_repo        = ${gcc_repo}"
+		echo "gcc_branch      = ${gcc_branch}"
+		echo "glibc_repo      = ${glibc_repo}"
+		echo "glibc_branch    = ${glibc_branch}"
+		echo "linux_repo      = ${linux_repo}"
+		echo "linux_branch    = ${linux_branch}"
+		echo "-------------------"
+	} | tee --append ${log_file}
 }
 
 print_info() {
@@ -357,15 +395,20 @@ process_opts "${@}"
 cpus=$(cpu_count)
 path_orig="${PATH}"
 
-binutils_branch_release="binutils-2_32"
-gcc_branch_release="gcc-9_2_0-release"
-glibc_branch_release="arm/ilp32"
-linux_branch_release="staging/ilp32-5.1"
+binutils_branch_master="master"
+gcc_branch_master="master"
+glibc_branch_master="arm/ilp32"
+linux_branch_master="staging/ilp32-5.1"
 
 binutils_branch_stable="binutils-2_32-branch"
 gcc_branch_stable="gcc-9-branch"
 glibc_branch_stable="arm/ilp32"
 linux_branch_stable="staging/ilp32-5.1"
+
+binutils_branch_release="binutils-2_32"
+gcc_branch_release="gcc-9_2_0-release"
+glibc_branch_release="arm/ilp32"
+linux_branch_release="staging/ilp32-5.1"
 
 if [[ ${config_file} && -f ${config_file} ]]; then
 	source ${config_file}
@@ -386,23 +429,43 @@ log_file=${log_file:-"${build_top}/${name}--${build_name}.log"}
 
 binutils_src=${binutils_src:-"${src_dir}/binutils"}
 binutils_repo=${binutils_repo:-"git://sourceware.org/git/binutils-gdb.git"}
-binutils_branch=${binutils_branch:-"master"}
 binutils_checker=${binutils_checker:-"${binutils_src}/bfd/elfxx-aarch64.c"}
 
 gcc_src=${gcc_src:-"${src_dir}/gcc"}
 gcc_repo=${gcc_repo:-"git://gcc.gnu.org/git/gcc.git"}
-gcc_branch=${gcc_branch:-"master"}
 gcc_checker=${gcc_checker:-"${gcc_src}/libgcc/memcpy.c"}
 
 glibc_src=${glibc_src:-"${src_dir}/glibc"}
 glibc_repo=${glibc_repo:-"git://sourceware.org/git/glibc.git"}
-glibc_branch=${glibc_branch:-"arm/ilp32"}
 glibc_checker=${glibc_checker:-"${glibc_src}/elf/global.c"}
 
 linux_src=${linux_src:-"${src_dir}/linux"}
 linux_repo=${linux_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git"}
-linux_branch=${linux_branch:-"staging/ilp32-5.1"}
 linux_checker=${linux_checker:-"${linux_src}/lib/bitmap.c"}
+
+if [[ ${use_master_branches} ]]; then
+	echo "${name}: Using toolchain master branches." >&2
+	binutils_branch=${binutils_branch_master}
+	gcc_branch=${gcc_branch_master}
+	glibc_branch=${glibc_branch_master}
+	linux_branch=${linux_branch_master}
+fi
+
+if [[ ${use_release_branches} ]]; then
+	echo "${name}: Using toolchain release branches." >&2
+	binutils_branch=${binutils_branch_release}
+	gcc_branch=${gcc_branch_release}
+	glibc_branch=${glibc_branch_release}
+	linux_branch=${linux_branch_release}
+fi
+
+if [[ ${use_stable_branches} ]]; then
+	echo "${name}: Using toolchain stable branches." >&2
+	binutils_branch=${binutils_branch_stable}
+	gcc_branch=${gcc_branch_stable}
+	glibc_branch=${glibc_branch_stable}
+	linux_branch=${linux_branch_stable}
+fi
 
 binutils_branch=${binutils_branch:-${binutils_branch_stable}}
 gcc_branch=${gcc_branch:-${gcc_branch_stable}}
@@ -449,6 +512,8 @@ fi
 
 mkdir -p ${build_top}
 cp -vf ${BASH_SOURCE} ${build_top}/${name}--${build_name}.sh
+
+print_branch_info ${log_file}
 
 while true; do
 	if [[ ${step_git_clone} ]]; then
@@ -519,8 +584,8 @@ while true; do
 		fi
 		break
 	fi
+	unset current_step
 done
 
-unset current_step
 
 trap "on_exit 'Success.'" EXIT
