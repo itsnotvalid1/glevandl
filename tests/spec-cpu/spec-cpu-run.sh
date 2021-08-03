@@ -12,8 +12,9 @@ usage () {
 	echo "  -v --verbose - Verbose execution." >&2
 	echo "  --src-dir    - SPEC CPU source directory. Default: '${src_dir}'." >&2
 	echo "  --spec-conf  - SPEC config file. Default: '${spec_conf}'." >&2
-	echo "  --build-top  - Top build directory. Default: '${build_top}'." >&2
+	echo "  --build-dir  - Top build directory. Default: '${build_dir}'." >&2
 	echo "  --prefix     - Toolchain prefix. Default: '${prefix}'." >&2
+	echo "  -d --dry-run - Pass --dry-run." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --install - Install SPEC CPU." >&2
 	echo "  -2 --run     - Run intrate test." >&2
@@ -21,9 +22,9 @@ usage () {
 }
 
 process_opts() {
-	local short_opts="chv12"
+	local short_opts="chvd12"
 	local long_opts="check,help,verbose,\
-src-dir:,spec-conf:,build-top:,prefix:,\
+src-dir:,spec-conf:,build-dir:,prefix:,dry-run,\
 install,run"
 
 	local opts
@@ -44,7 +45,7 @@ install,run"
 			;;
 		-v | --verbose)
 			set -x
-			#verbose=1
+			verbose=1
 			shift
 			;;
 		--src-dir)
@@ -55,13 +56,17 @@ install,run"
 			spec_conf="${2}"
 			shift 2
 			;;
-		--build-top)
-			build_top="${2}"
+		--build-dir)
+			build_dir="${2}"
 			shift 2
 			;;
 		--prefix)
 			prefix="${2}"
 			shift 2
+			;;
+		-d | --dry-run)
+			dry_run=1
+			shift
 			;;
 		-1 | --install)
 			step_install=1
@@ -211,7 +216,7 @@ check_tools() {
 }
 
 build_progs() {
-	mkdir -p "${build_top}"
+	mkdir -p "${build_dir}"
 
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
@@ -223,14 +228,14 @@ build_progs() {
 				"${!gcc_opts}" \
 				"${link_extra}" \
 				-DLINKAGE_dynamic \
-				-o "${build_top}/${prog}--${abi}" \
+				-o "${build_dir}/${prog}--${abi}" \
 				"${SCRIPTS_TOP}/${prog}.c" || :
 			${CC} \
 				"${!gcc_opts}" \
 				"${link_extra}" \
 				-static \
 				-DLINKAGE_static \
-				-o "${build_top}/${prog}--${abi}-static" \
+				-o "${build_dir}/${prog}--${abi}-static" \
 				"${SCRIPTS_TOP}/${prog}.c" || :
 			eval "${old_xtrace}"
 		done
@@ -243,7 +248,7 @@ run_file() {
 
 	for prog in ${progs}; do
 		for abi in ${abis}; do
-			local base=${build_top}/${prog}--${abi}
+			local base=${build_dir}/${prog}--${abi}
 			for file in ${base}; do
 				if [[ -f ${file} ]]; then
 					file "${file}"
@@ -266,7 +271,7 @@ run_ld_so() {
 	for prog in ${progs}; do
 		for abi in ${abis}; do
 			local ld_so="ld_so_${abi}"
-			local file=${build_top}/${prog}--${abi}
+			local file=${build_dir}/${prog}--${abi}
 			file "${!ld_so}"
 			if [[ -f ${file} ]]; then
 				"${!ld_so}" --list "${file}" || :
@@ -287,7 +292,7 @@ run_objdump() {
 
 	for prog in ${progs}; do
 		for abi in ${abis}; do
-			local base=${build_top}/${prog}--${abi}
+			local base=${build_dir}/${prog}--${abi}
 			for file in ${base}; do
 				if [[ -f ${file} ]]; then
 					"${OBJDUMP}" -x "${file}"
@@ -303,7 +308,7 @@ run_objdump() {
 
 archive_libs() {
 	local name="ilp32-libraries"
-	local dir="${build_top}/${script_name}"
+	local dir="${build_dir}/${script_name}"
 
 	mkdir -p "${dir}/${prefix}/lib/"
 
@@ -317,61 +322,92 @@ archive_libs() {
 	uname -a >> "${dir}/${prefix}/info.txt"
 	${CC} --version >> "${dir}/${prefix}/info.txt"
 
-	#tar -C ${dir} -cvzf ${build_top}/${script_name}.tar.gz ${prefix#/}
-}
-
-install_tests() {
-	local src_dir=${1}
-	local install_dir=${2}
-
-	mkdir -p "${install_dir}"
-
-	"${src_dir}/install.sh" -d "${install_dir}" -f
-
-	check_file "${install_dir}/bin/harness/runcpu"
-
-	pushd "${install_dir}"
-
-	# shellcheck source=/dev/null
-	source "${install_dir}/shrc"
-	echo "y" | runcpu --update
-
-	popd
-	echo "${script_name}: INFO: Install done." >&2
+	#tar -C ${dir} -cvzf ${build_dir}/${script_name}.tar.gz ${prefix#/}
 }
 
 test_for_src()
 {
-	local install_dir=${1}
+	local build_dir=${1}
 
-	check_file "${install_dir}/bin/harness/runcpu"
+	check_file "${build_dir}/bin/harness/runcpu"
+}
+
+install_tests() {
+	local src_dir=${1}
+	local build_dir=${2}
+
+	mkdir -p "${build_dir}"
+
+	if [[ ${verbose} ]]; then
+		tput() {
+			echo "tput: ${1}"
+		}
+
+		export -f tput
+		bash -x "${src_dir}/install.sh" -d "${build_dir}" -f
+		export -f -n tput
+	else
+		"${src_dir}/install.sh" -d "${build_dir}" -f
+	fi
+
+	echo "${script_name}: INFO: Install done." >&2
+}
+
+update_tests() {
+	local build_dir=${1}
+
+	test_for_src "${build_dir}"
+
+	pushd "${build_dir}"
+
+	# shellcheck source=/dev/null
+	source "${build_dir}/shrc"
+
+	local cmd="runcpu \
+		${verbose:+--verbose=99}
+		${extra_ops}
+		 --update"
+
+	echo "y" | eval ${cmd}
+
+	popd
+	echo "${script_name}: INFO: Update done." >&2
 }
 
 run_tests() {
-	local install_dir=${1}
-	local conf_copy="${install_dir}/${spec_conf##*/}"
+	local build_dir=${1}
+	local abi=${2}
+	shift 2
+	local extra_ops="${*}"
 
+	local conf_copy="${build_dir}/${spec_conf##*/}"
 	cp -avf ${spec_conf} ${conf_copy}
 
-	pushd "${install_dir}"
+	pushd "${build_dir}"
 	export PATH=${prefix}/bin:${PATH}
 
 	ulimit -s unlimited
 
 	# shellcheck source=/dev/null
-	source "${install_dir}/shrc"
+	source "${build_dir}/shrc"
 
-	local cmd="runcpu
+	local gcc_opts="gcc_opts_${abi}"
+
+	local cmd="runcpu \
+		${extra_ops}
+		${verbose:+--verbose=99}
+		${dry_run:+--dry-run}
 		--configfile=${conf_copy}
-		--define bits=32
+		--define abi=${abi}
+		--define gcc_opts=${gcc_opts}
 		--copies=1
 		--iterations=1
 		--tune=base
 		--size=test
 		--noreportable
 		--nopower
-		--ignore-errors
 		intrate"
+
 	eval ${cmd}
 }
 
@@ -396,8 +432,7 @@ host_arch=$(get_arch "$(uname -m)")
 prefix=${prefix:-"/opt/ilp32"}
 spec_conf=${spec_conf:-"${SCRIPTS_TOP}/ilp32.cfg"}
 
-build_top=${build_top:-"$(pwd)"}
-install_dir=${install_dir:-"${build_top}/install"}
+build_dir=${build_dir:-"$(pwd)/cpu2017-build"}
 
 if [[ -n "${usage}" ]]; then
 	usage
@@ -457,12 +492,16 @@ esac
 while true; do
 	if [[ ${step_install} ]]; then
 		current_step="step_install"
-		install_tests "${src_dir}" "${install_dir}"
+		install_tests "${src_dir}" "${build_dir}"
+		update_tests "${build_dir}"
 		unset step_install
 	elif [[ ${step_run} ]]; then
 		current_step="step_run"
-		test_for_src "${install_dir}"
-		run_tests "${install_dir}"
+		test_for_src "${build_dir}"
+		#extra_ops+=" --ignore-errors"
+		for abi in ${abis}; do
+			run_tests "${build_dir}" ${abi} ${extra_ops}
+		done
 		unset step_run
 	else
 		if [[ ${current_step} == "setup" ]]; then
