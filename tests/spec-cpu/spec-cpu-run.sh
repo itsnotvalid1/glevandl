@@ -393,13 +393,14 @@ run_tests() {
 
 	local gcc_opts="gcc_opts_${abi}"
 
+#		--define gcc_opts=${gcc_opts}
+
 	local cmd="runcpu \
 		${extra_ops}
 		${verbose:+--verbose=99}
 		${dry_run:+--dry-run}
 		--configfile=${conf_copy}
 		--define abi=${abi}
-		--define gcc_opts=${gcc_opts}
 		--copies=1
 		--iterations=1
 		--tune=base
@@ -464,12 +465,14 @@ ld_so_lp64="${ld_so_lp64:-$(realpath -e "${prefix}/lib/ld-linux-aarch64.so.1")}"
 
 gcc_opts_ilp32=${gcc_opts_ilp32:-"
 	-mabi=ilp32
+	-Wl,--verbose
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64_ilp32.so.1
 	-Wl,--rpath=${prefix}/libilp32
 "}
 
 gcc_opts_lp64=${gcc_opts_lp64:-"
 	-mabi=lp64
+	-Wl,--verbose
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64.so.1
 	-Wl,--rpath=${prefix}/lib64
 "}
@@ -498,7 +501,10 @@ while true; do
 	elif [[ ${step_run} ]]; then
 		current_step="step_run"
 		test_for_src "${build_dir}"
-		#extra_ops+=" --ignore-errors"
+		extra_ops+=" --ignore-errors"
+
+		# FIXME for debug
+		abis="lp64"
 		for abi in ${abis}; do
 			run_tests "${build_dir}" ${abi} ${extra_ops}
 		done
