@@ -4,7 +4,7 @@ usage () {
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${script_name} - Build lp64 and ilp32 hello-world programs." >&2
+	echo "${script_name} - Build lp64 and ilp32 test programs." >&2
 	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -c --check              - Run shellcheck." >&2
@@ -76,7 +76,7 @@ on_exit() {
 #===============================================================================
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 
-progs="hello-world"
+progs="pr82274-1 pr82274-2"
 abis="lp64 ilp32"
 
 script_name="${0##*/}"
@@ -106,23 +106,26 @@ if [[ ${check} ]]; then
 	exit 0
 fi
 
-
 CC=${CC:-"${prefix}/bin/aarch64-linux-gnu-gcc"}
 OBJDUMP=${OBJDUMP:-"${CC%-gcc}-objdump"}
 
 ld_so_ilp32="${ld_so_ilp32:-$(realpath -e ${prefix}/lib/ld-linux-aarch64_ilp32.so.1)}"
 ld_so_lp64="${ld_so_lp64:-$(realpath -e ${prefix}/lib/ld-linux-aarch64.so.1)}"
 
+gcc_opts_common=" -ftrapv"
+
 gcc_opts_ilp32=${gcc_opts_ilp32:-"
 	-mabi=ilp32
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64_ilp32.so.1
 	-Wl,--rpath=${prefix}/libilp32
+	${gcc_opts_common}
 "}
 
 gcc_opts_lp64=${gcc_opts_lp64:-"
 	-mabi=lp64
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64.so.1
 	-Wl,--rpath=${prefix}/lib64
+	${gcc_opts_common}
 "}
 
 check_tools ${prefix}

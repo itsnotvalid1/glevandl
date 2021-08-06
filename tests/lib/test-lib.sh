@@ -136,6 +136,8 @@ build_progs() {
 			eval "${old_xtrace}"
 		done
 	done
+
+	echo "${progs}" > ${build_top}/programs
 }
 
 run_file() {
