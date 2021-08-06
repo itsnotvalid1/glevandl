@@ -224,22 +224,22 @@ run_objdump() {
 }
 
 archive_libs() {
-	local name="ilp32-libraries"
-	local dir="${build_top}/${script_name}"
+	local archive="ilp32-libraries"
+	local dir="${build_top}/${archive}"
 
-	mkdir -p ${dir}/${prefix}/lib/
+	mkdir -p ${dir}${prefix}/lib/
 
-	cp -a ${prefix}/lib/ld-linux-aarch64_ilp32.so.1 ${dir}/${prefix}/lib/
-	cp -a ${prefix}/libilp32 ${dir}/${prefix}/
+	cp -av ${prefix}/lib/ld-linux-aarch64_ilp32.so.1 ${dir}${prefix}/lib/
+	cp -av ${prefix}/libilp32 ${dir}${prefix}/
 
-	cp -a ${prefix}/lib/ld-linux-aarch64.so.1 ${dir}/${prefix}/lib/
-	cp -a ${prefix}/lib64 ${dir}/${prefix}/
+	cp -av ${prefix}/lib/ld-linux-aarch64.so.1 ${dir}${prefix}/lib/
+	cp -av ${prefix}/lib64 ${dir}${prefix}/
 
-	echo "$(date)" > ${dir}/${prefix}/info.txt
-	echo "$(uname -a)" >> ${dir}/${prefix}/info.txt
-	echo "$(${CC} --version)" >> ${dir}/${prefix}/info.txt
+	echo "$(date)" > ${dir}${prefix}/info.txt
+	echo "$(uname -a)" >> ${dir}${prefix}/info.txt
+	echo "$(${CC} --version)" >> ${dir}${prefix}/info.txt
 
-	#tar -C ${dir} -cvzf ${build_top}/${script_name}.tar.gz ${prefix#/}
+	tar -cvzf ${build_top}/${archive}.tar.gz -C ${dir} ${prefix#/}
 }
 
 #===============================================================================
