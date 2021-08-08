@@ -2,16 +2,16 @@
 
 usage () {
 	local old_xtrace
-	old_xtrace="$(shopt -po xtrace || :)"
+	old_xtrace="$(shopt -po xtrace)"
 	set +o xtrace
-	echo "${script_name} - Build lp64 and ilp32 test programs." >&2
+	echo "${script_name} - Build lp64 and ilp32 programs: ${progs}." >&2
 	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
-	echo "  -c --check              - Run shellcheck." >&2
-	echo "  -h --help               - Show this help and exit." >&2
-	echo "  -v --verbose            - Verbose execution." >&2
-	echo "  --build-top <directory> - Top build directory. Default: '${build_top}'." >&2
-	echo "  --prefix    <directory> - Toolchain prefix. Default: '${prefix}'." >&2
+	echo "  -c --check   - Run shellcheck." >&2
+	echo "  -h --help    - Show this help and exit." >&2
+	echo "  -v --verbose - Verbose execution." >&2
+	echo "  --build-top  - Top build directory. Default: '${build_top}'." >&2
+	echo "  --prefix     - Toolchain prefix. Default: '${prefix}'." >&2
 	eval "${old_xtrace}"
 }
 
@@ -74,23 +74,24 @@ on_exit() {
 #===============================================================================
 # program start
 #===============================================================================
-export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
-
-progs="pr82274-1 pr82274-2"
-abis="lp64 ilp32"
-
-script_name="${0##*/}"
-build_time="$(date +%Y.%m.%d-%H.%M.%S)"
+export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 
 trap "on_exit 'failed.'" EXIT
 set -e
 
-SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
-source "${SCRIPTS_TOP}/../lib/test-lib.sh"
+if [[ ! ${progs} ]]; then
+	echo "${script_name}: ERROR: 'progs' not defined." >&2
+	exit 1
+fi
+
+source "${LIB_TOP}/test-lib.sh"
+
+build_time="$(date +%Y.%m.%d-%H.%M.%S)"
 
 process_opts "${@}"
 
-host_arch=$(get_arch $(uname -m))
+abis="lp64 ilp32"
+host_arch=$(get_arch "$(uname -m)")
 build_top=${build_top:-"$(pwd)"}
 prefix=${prefix:-"/opt/ilp32"}
 
@@ -109,10 +110,12 @@ fi
 CC=${CC:-"${prefix}/bin/aarch64-linux-gnu-gcc"}
 OBJDUMP=${OBJDUMP:-"${CC%-gcc}-objdump"}
 
-ld_so_ilp32="${ld_so_ilp32:-$(realpath -e ${prefix}/lib/ld-linux-aarch64_ilp32.so.1)}"
-ld_so_lp64="${ld_so_lp64:-$(realpath -e ${prefix}/lib/ld-linux-aarch64.so.1)}"
+ld_so_ilp32="${ld_so_ilp32:-$(realpath -e "${prefix}/lib/ld-linux-aarch64_ilp32.so.1")}"
+ld_so_lp64="${ld_so_lp64:-$(realpath -e "${prefix}/lib/ld-linux-aarch64.so.1")}"
 
-gcc_opts_common=" -ftrapv"
+if [[ ${verbose} ]]; then
+	gcc_opts_common+=" -Wl,--verbose"
+fi
 
 gcc_opts_ilp32=${gcc_opts_ilp32:-"
 	-mabi=ilp32
@@ -128,17 +131,15 @@ gcc_opts_lp64=${gcc_opts_lp64:-"
 	${gcc_opts_common}
 "}
 
-check_tools ${prefix}
-
-if [ ${verbose} ]; then
-	link_extra="-Wl,--verbose"
-fi
+check_tools "${prefix}"
 
 build_progs
-run_file
-run_ld_so
-run_objdump
-archive_libs ${build_top} ${prefix}
+if [[ ${verbose} ]]; then
+	run_file
+	run_ld_so
+	run_objdump
+fi
+archive_libs "${build_top}" "${prefix}"
 
 trap "on_exit 'Success.'" EXIT
 exit 0
