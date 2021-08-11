@@ -114,21 +114,21 @@ ld_so_ilp32="${ld_so_ilp32:-$(realpath -e "${prefix}/lib/ld-linux-aarch64_ilp32.
 ld_so_lp64="${ld_so_lp64:-$(realpath -e "${prefix}/lib/ld-linux-aarch64.so.1")}"
 
 if [[ ${verbose} ]]; then
-	gcc_opts_common+=" -Wl,--verbose"
+	gcc_opts_extra+=" -Wl,--verbose"
 fi
 
 gcc_opts_ilp32=${gcc_opts_ilp32:-"
 	-mabi=ilp32
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64_ilp32.so.1
 	-Wl,--rpath=${prefix}/libilp32
-	${gcc_opts_common}
+	${gcc_opts_extra}
 "}
 
 gcc_opts_lp64=${gcc_opts_lp64:-"
 	-mabi=lp64
 	-Wl,--dynamic-linker=${prefix}/lib/ld-linux-aarch64.so.1
 	-Wl,--rpath=${prefix}/lib64
-	${gcc_opts_common}
+	${gcc_opts_extra}
 "}
 
 check_tools "${prefix}"
