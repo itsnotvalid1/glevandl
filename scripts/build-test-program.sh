@@ -7,10 +7,10 @@ usage () {
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help   - Show this help and exit." >&2
-	echo "  --src-top   - Top source directory. Default: '${src_top}'." >&2
-	echo "  --test-name - Test name. Guessed: '${test_name_guessed}', Default: '${test_name}'." >&2
 	echo "  --build-top - Top build directory. Default: '${build_top}'." >&2
 	echo "  --prefix    - Toolchain prefix. Default: '${prefix}'." >&2
+	echo "  --src-top   - Top source directory. Default: '${src_top}'." >&2
+	echo "  --test-name - Test name. Guessed: '${test_name_guessed}', Default: '${test_name}'." >&2
 	echo "Environment:" >&2
 	echo "  HOST_WORK_DIR       - Default: '${HOST_WORK_DIR}'" >&2
 	eval "${old_xtrace}"
@@ -125,7 +125,7 @@ fi
 ${SCRIPTS_TOP}/enter-builder.sh \
 	--verbose \
 	--container-name=build-${test_name}--$(date +%H-%M-%S) \
-	-- ${builder_src_top}/build.sh \
+	-- ${builder_src_top}/build-${test_name}.sh \
 		--verbose \
 		--build-top=${builder_build_top} \
 		--prefix=${prefix}

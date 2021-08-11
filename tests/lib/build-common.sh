@@ -2,7 +2,7 @@
 
 usage () {
 	local old_xtrace
-	old_xtrace="$(shopt -po xtrace)"
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "${script_name} - Build lp64 and ilp32 programs: ${progs}." >&2
 	echo "Usage: ${script_name} [flags]" >&2
