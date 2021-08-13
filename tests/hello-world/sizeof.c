@@ -11,6 +11,7 @@ int main(void)
 	printf("%s: sizeof int     = %u\n", abi, (unsigned int)sizeof(int));
 	printf("%s: sizeof long    = %u\n", abi, (unsigned int)sizeof(long));
 	printf("%s: sizeof pointer = %u\n", abi, (unsigned int)sizeof(int *));
+	printf("%s: sizeof size_t  = %u\n", abi, (unsigned int)sizeof(size_t));
 
 	return 0;
 }
