@@ -393,9 +393,9 @@ git_checkout_safe() {
 
 	git_set_remote ${dir} ${repo}
 	git -C ${dir} remote update
-	git -C ${dir} checkout --force ${branch}
+	git -C ${dir} checkout --force origin/${branch}
 	git -C ${dir} add .
-	git -C ${dir} reset --hard ${branch}
+	git -C ${dir} reset --hard origin/${branch}
 }
 
 git_checkout_force() {
@@ -412,6 +412,7 @@ git_checkout_force() {
 	git -C ${dir} remote update
 	git -C ${dir} checkout --force ${branch}
 	git -C ${dir} pull
+	git -C ${dir} status
 }
 
 run_shellcheck() {
