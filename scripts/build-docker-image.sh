@@ -187,6 +187,8 @@ build_toolup() {
 }
 
 build_toolchain() {
+	#local toolup_work_dir="$(${SCRIPTS_TOP}/enter-toolup.sh --print-work-dir)"
+
 	mkdir -p ${toolchain_dest_pre}
 
 	printenv
@@ -194,13 +196,11 @@ build_toolchain() {
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
 		--docker-args="\
-			-v ${builder_top}:${toolup_builder_top} \
-			-v ${build_top}:${toolup_build_top} \
-			-v "$(to_host ${toolchain_dest_pre})":${toolchain_prefix} \
+			--volumes-from $(get_container_id) \
 			-e DEBUG_TOOLCHAIN_SRC \
 		" \
 		-- ${toolup_builder_top}/scripts/build-toolchain.sh \
-			--build-top=${toolup_build_top} \
+			--build-top=${build_top} \
 			--destdir="/" \
 			--prefix=${toolchain_prefix} \
 			-12345678
@@ -261,6 +261,9 @@ export CURRENT_WORK_DIR=${CURRENT_WORK_DIR:-"${HOST_WORK_DIR}"}
 
 build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/build-${build_time}"})"
 
+builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
+docker_top=${docker_top:-"${builder_top}/docker"}
+
 toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}
 toolchain_dest_pre="${toolchain_destdir}${toolchain_prefix}"
@@ -270,15 +273,6 @@ if [[ -n "${usage}" ]]; then
 	trap - EXIT
 	exit 0
 fi
-
-builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
-docker_top=${docker_top:-"${builder_top}/docker"}
-
-toolup_work_dir="$(${SCRIPTS_TOP}/enter-toolup.sh --print-work-dir)"
-
-#toolup_scripts_top="${toolup_work_dir}${SCRIPTS_TOP#*${toolup_work_dir}}"
-toolup_builder_top="${toolup_work_dir}${builder_top#*${toolup_work_dir}}"
-toolup_build_top="${toolup_work_dir}${build_top#*${toolup_work_dir}}"
 
 while true; do
 	if [[ ${step_toolup} ]]; then
