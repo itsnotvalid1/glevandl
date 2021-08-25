@@ -186,9 +186,7 @@ build_toolup() {
 	fi
 }
 
-build_toolchain() {
-	#local toolup_work_dir="$(${SCRIPTS_TOP}/enter-toolup.sh --print-work-dir)"
-
+build_toolchain1() {
 	mkdir -p ${toolchain_dest_pre}
 
 	printenv
@@ -197,9 +195,28 @@ build_toolchain() {
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
 		--docker-args="\
 			--volumes-from $(get_container_id) \
+			-v ${toolchain_dest_pre}:${toolchain_prefix} \
 			-e DEBUG_TOOLCHAIN_SRC \
 		" \
-		-- ${toolup_builder_top}/scripts/build-toolchain.sh \
+		-- ${builder_top}/scripts/build-toolchain.sh \
+			--build-top=${build_top} \
+			--destdir="/" \
+			--prefix=${toolchain_prefix} \
+			-12345678
+}
+
+build_toolchain() {
+	mkdir -p ${toolchain_dest_pre}
+
+	printenv
+	${SCRIPTS_TOP}/enter-toolup.sh \
+		--verbose \
+		--container-name=build-toolchain--$(date +%H-%M-%S) \
+		--docker-args="\
+			-v ${build_top}:${build_top} \
+			-e DEBUG_TOOLCHAIN_SRC \
+		" \
+		-- ${builder_top}/scripts/build-toolchain.sh \
 			--build-top=${build_top} \
 			--destdir="/" \
 			--prefix=${toolchain_prefix} \
@@ -250,6 +267,9 @@ SECONDS=0
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
+builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
+docker_top=${docker_top:-"${builder_top}/docker"}
+
 host_arch=$(get_arch $(uname -m))
 target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
@@ -260,9 +280,6 @@ export HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
 export CURRENT_WORK_DIR=${CURRENT_WORK_DIR:-"${HOST_WORK_DIR}"}
 
 build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/build-${build_time}"})"
-
-builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
-docker_top=${docker_top:-"${builder_top}/docker"}
 
 toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}

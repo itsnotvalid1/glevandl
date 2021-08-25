@@ -401,7 +401,7 @@ glibc_branch_master="arm/ilp32"
 linux_branch_master="staging/ilp32-5.1"
 
 binutils_branch_stable="binutils-2_32-branch"
-gcc_branch_stable="gcc-9-branch"
+gcc_branch_stable="releases/gcc-9"
 glibc_branch_stable="arm/ilp32"
 linux_branch_stable="staging/ilp32-5.1"
 
