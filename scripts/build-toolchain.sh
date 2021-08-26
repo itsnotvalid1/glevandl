@@ -398,50 +398,51 @@ path_orig="${PATH}"
 binutils_branch_master="master"
 gcc_branch_master="master"
 glibc_branch_master="arm/ilp32"
-linux_branch_master="staging/ilp32-5.1"
+linux_branch_master="ilp32-5.5.y"
 
 binutils_branch_stable="binutils-2_32-branch"
 gcc_branch_stable="releases/gcc-9"
 glibc_branch_stable="arm/ilp32"
-linux_branch_stable="staging/ilp32-5.1"
+linux_branch_stable="ilp32-5.5.y"
 
 binutils_branch_release="binutils-2_32"
 gcc_branch_release="gcc-9_2_0-release"
 glibc_branch_release="arm/ilp32"
-linux_branch_release="staging/ilp32-5.1"
+linux_branch_release="ilp32-5.5.y"
 
 if [[ ${config_file} && -f ${config_file} ]]; then
 	source ${config_file}
 fi
 
-build_top=${build_top:-"$(pwd)"}
+build_top="${build_top:-$(pwd)}"
 
-build_dir=${build_dir:-"${build_top}/build"}
-src_dir=${src_dir:-"${build_top}/src"}
+build_dir="${build_dir:-${build_top}/build}"
+src_dir="${src_dir:-${build_top}/src}"
 
-prefix=${prefix:-"/opt/ilp32"}
-destdir=${destdir:-"${build_top}/destdir"}
-dest_pre=${destdir}${prefix}
+prefix="${prefix:-/opt/ilp32}"
+destdir="${destdir:-${build_top}/destdir}"
+dest_pre="${destdir}${prefix}"
 headers_dir="${dest_pre}/usr/include"
 
-build_name=${build_name:-${build_time}}
-log_file=${log_file:-"${build_top}/${name}--${build_name}.log"}
+build_name="${build_name:-${build_time}}"
+log_file="${log_file:-${build_top}/${name}--${build_name}.log}"
 
-binutils_src=${binutils_src:-"${src_dir}/binutils"}
-binutils_repo=${binutils_repo:-"git://sourceware.org/git/binutils-gdb.git"}
-binutils_checker=${binutils_checker:-"${binutils_src}/bfd/elfxx-aarch64.c"}
+binutils_src="${binutils_src:-${src_dir}/binutils}"
+binutils_repo="${binutils_repo:-git://sourceware.org/git/binutils-gdb.git}"
+binutils_checker="${binutils_checker:-${binutils_src}/bfd/elfxx-aarch64.c}"
 
-gcc_src=${gcc_src:-"${src_dir}/gcc"}
-gcc_repo=${gcc_repo:-"git://gcc.gnu.org/git/gcc.git"}
-gcc_checker=${gcc_checker:-"${gcc_src}/libgcc/memcpy.c"}
+gcc_src="${gcc_src:-${src_dir}/gcc}"
+gcc_repo="${gcc_repo:-git://gcc.gnu.org/git/gcc.git}"
+gcc_checker="${gcc_checker:-${gcc_src}/libgcc/memcpy.c}"
 
-glibc_src=${glibc_src:-"${src_dir}/glibc"}
-glibc_repo=${glibc_repo:-"git://sourceware.org/git/glibc.git"}
-glibc_checker=${glibc_checker:-"${glibc_src}/elf/global.c"}
+glibc_src="${glibc_src:-${src_dir}/glibc}"
+glibc_repo="${glibc_repo:-git://sourceware.org/git/glibc.git}"
+glibc_checker="${glibc_checker:-${glibc_src}/elf/global.c}"
 
-linux_src=${linux_src:-"${src_dir}/linux"}
-linux_repo=${linux_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git"}
-linux_checker=${linux_checker:-"${linux_src}/lib/bitmap.c"}
+linux_src="${linux_src:-${src_dir}/linux}"
+#linux_repo="${linux_repo:-https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git}"
+linux_repo="${linux_repo:-https://github.com/glevand/ilp32--linux.git}"
+linux_checker="${linux_checker:-${linux_src}/lib/bitmap.c}"
 
 if [[ ${use_master_branches} ]]; then
 	echo "${name}: Using toolchain master branches." >&2
@@ -514,6 +515,11 @@ mkdir -p ${build_top}
 cp -vf ${BASH_SOURCE} ${build_top}/${name}--${build_name}.sh
 
 print_branch_info ${log_file}
+
+printenv
+ls -l /home/geoff/projects/tdd/tdd--test/
+ls -l /home/geoff/projects/tdd/tdd--test/ilp32-builder-work
+ls -l /home/geoff/projects/tdd/tdd--test/ilp32-builder-work/debug-toolchain-src
 
 while true; do
 	if [[ ${step_git_clone} ]]; then

@@ -16,8 +16,7 @@ usage () {
 	echo "  --toolchain-destdir - Top toolchain directory. Default: '${toolchain_destdir}'." >&2
 	echo "  --toolchain-prefix  - Top toolchain directory. Default: '${toolchain_prefix}'." >&2
 	echo "Environment:" >&2
-	echo "  HOST_WORK_DIR       - Default: '${HOST_WORK_DIR}'" >&2
-	echo "  CURRENT_WORK_DIR    - Default: '${CURRENT_WORK_DIR}'" >&2
+	echo "  DEBUG_TOOLCHAIN_SRC - Default: '${DEBUG_TOOLCHAIN_SRC}'." >&2
 	eval "${old_xtrace}"
 }
 
@@ -122,7 +121,7 @@ build_image() {
 	local destdir=${2}
 	local prefix=${3}
 
-	local version=${VERSION:-"1"}
+	local version=${VERSION:-${default_image_version}}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
 	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}-${host_arch}"}
 	local docker_file=${DOCKER_FILE:-"${docker_top}/Dockerfile.${docker_name}"}
@@ -160,7 +159,7 @@ build_image() {
 test_for_image() {
 	local image_type=${1}
 
-	local version=${VERSION:-"1"}
+	local version=${VERSION:-${default_image_version}}
 	local docker_name=${DOCKER_NAME:-"ilp32-${image_type}"}
 	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}-${host_arch}"}
 
@@ -186,37 +185,21 @@ build_toolup() {
 	fi
 }
 
-build_toolchain1() {
-	mkdir -p ${toolchain_dest_pre}
-
-	printenv
-	${SCRIPTS_TOP}/enter-toolup.sh \
-		--verbose \
-		--container-name=build-toolchain--$(date +%H-%M-%S) \
-		--docker-args="\
-			--volumes-from $(get_container_id) \
-			-v ${toolchain_dest_pre}:${toolchain_prefix} \
-			-e DEBUG_TOOLCHAIN_SRC \
-		" \
-		-- ${builder_top}/scripts/build-toolchain.sh \
-			--build-top=${build_top} \
-			--destdir="/" \
-			--prefix=${toolchain_prefix} \
-			-12345678
-}
-
 build_toolchain() {
 	mkdir -p ${toolchain_dest_pre}
 
-	printenv
+#	printenv
+#			--volumes-from $(get_container_id) \
+
 	${SCRIPTS_TOP}/enter-toolup.sh \
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
+		--work-dir=${build_top} \
 		--docker-args="\
-			-v ${build_top}:${build_top} \
-			-e DEBUG_TOOLCHAIN_SRC \
-		" \
-		-- ${builder_top}/scripts/build-toolchain.sh \
+			-v ${toolchain_dest_pre}:${toolchain_prefix} \
+			-v ${PROJECT_TOP}:${PROJECT_TOP}:ro \
+			-e DEBUG_TOOLCHAIN_SRC=${DEBUG_TOOLCHAIN_SRC}" \
+		-- ${PROJECT_TOP}/scripts/build-toolchain.sh \
 			--build-top=${build_top} \
 			--destdir="/" \
 			--prefix=${toolchain_prefix} \
@@ -267,19 +250,17 @@ SECONDS=0
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
-builder_top=${builder_top:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
-docker_top=${docker_top:-"${builder_top}/docker"}
+PROJECT_TOP=${PROJECT_TOP:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
+docker_top=${docker_top:-"${PROJECT_TOP}/docker"}
 
 host_arch=$(get_arch $(uname -m))
 target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
+default_image_version="2"
 
 process_opts "${@}"
 
-export HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
-export CURRENT_WORK_DIR=${CURRENT_WORK_DIR:-"${HOST_WORK_DIR}"}
-
-build_top="$(realpath -m ${build_top:-"${HOST_WORK_DIR}/build-${build_time}"})"
+build_top="$(realpath -m ${build_top:-"$(pwd)/build-${build_time}"})"
 
 toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}

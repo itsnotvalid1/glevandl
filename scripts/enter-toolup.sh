@@ -6,25 +6,24 @@ usage () {
 	echo "${name} - Enter ilp32 Docker image." >&2
 	echo "Usage: ${name} [flags] -- [command]" >&2
 	echo "Option flags:" >&2
-	echo "  -a --docker-args    - Args for docker run. Default: '${docker_args}'" >&2
 	echo "  -h --help           - Show this help and exit." >&2
+	echo "  -v --verbose        - Verbose execution." >&2
+	echo "  -a --docker-args    - Args for docker run. Default: '${docker_args}'" >&2
 	echo "  -n --container-name - Container name. Default: '${container_name}'." >&2
 	echo "  -r --as-root        - Run as root user." >&2
 	echo "  -t --tag            - Print Docker tag to stdout and exit." >&2
-	echo "  -v --verbose        - Verbose execution." >&2
-	echo "  -w --print-work-dir - Print container work directory ILP32_WORK_DIR to stdout and exit." >&2
+	echo "  --work-dir          - Work directory. Default: '${work_dir}'." >&2
 	echo "Args:" >&2
 	echo "  command             - Default: '${user_cmd}'" >&2
 	echo "Environment:" >&2
-	echo "  HOST_WORK_DIR       - Default: '${HOST_WORK_DIR}'" >&2
-	echo "  ILP32_WORK_DIR      - Default: '${ILP32_WORK_DIR}'" >&2
 	echo "  DOCKER_TAG          - Default: '${DOCKER_TAG}'" >&2
 	eval "${old_xtrace}"
 }
 
 process_opts() {
-	local short_opts="a:hn:rtvw"
-	local long_opts="docker-args:,help,container-name:,as-root,tag,verbose,print-work-dir"
+	local short_opts="hva:n:rt"
+local long_opts="help,verbose,\
+docker-args:,container-name:,as-root,tag,work-dir:"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -34,13 +33,18 @@ process_opts() {
 	while true ; do
 		#echo "${FUNCNAME[0]}: @${1}@ @${2}@"
 		case "${1}" in
-		-a | --docker-args)
-			docker_args="${2}"
-			shift 2
-			;;
 		-h | --help)
 			usage=1
 			shift
+			;;
+		-v | --verbose)
+			set -x
+			verbose=1
+			shift
+			;;
+		-a | --docker-args)
+			docker_args="${2}"
+			shift 2
 			;;
 		-n | --container-name)
 			container_name="${2}"
@@ -54,14 +58,9 @@ process_opts() {
 			tag=1
 			shift
 			;;
-		-v | --verbose)
-			set -x
-			verbose=1
-			shift
-			;;
-		-w | --print-work-dir)
-			print_work_dir=1
-			shift
+		--work-dir)
+			work_dir="${2}"
+			shift 2
 			;;
 		--)
 			shift
@@ -99,18 +98,18 @@ set -e
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
-host_arch=$(get_arch "$(uname -m)")
+PROJECT_TOP=${PROJECT_TOP:-"$(cd "${SCRIPTS_TOP}/.." && pwd)"}
+
+host_arch=$(get_arch $(uname -m))
 target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
+default_image_version="2"
 
 process_opts "${@}"
 
-VERSION=${VERSION:-"1"}
+VERSION=${VERSION:-${default_image_version}}
 DOCKER_NAME=${DOCKER_NAME:-"ilp32-${image_type}"}
 DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}-${host_arch}"}
-
-HOST_WORK_DIR=${HOST_WORK_DIR:-"$(pwd)"}
-ILP32_WORK_DIR=${ILP32_WORK_DIR:-"/ilp32"}
 
 container_name=${container_name:-${DOCKER_NAME}}
 
@@ -131,14 +130,20 @@ if [[ ${tag} ]]; then
 	exit 0
 fi
 
-if [[ ${print_work_dir} ]]; then
-	echo "${ILP32_WORK_DIR}"
-	trap - EXIT
-	exit 0
+if [[ "${image_type}" == "toolup" && ${ILP32_TOOLUP} ]]; then
+	echo "${name}: ERROR: Already in ilp32-toolup container." >&2
+	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
+	exit 1
 fi
 
-if [ ${ILP32_BUILDER} ]; then
+if [[ "${image_type}" == "builder" && ${ILP32_BUILDER} ]]; then
 	echo "${name}: ERROR: Already in ilp32-builder container." >&2
+	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
+	exit 1
+fi
+
+if [[ "${image_type}" == "runner" && ${ILP32_RUNNER} ]]; then
+	echo "${name}: ERROR: Already in ilp32-runner container." >&2
 	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
 	exit 1
 fi
@@ -150,14 +155,13 @@ if [[ ! ${as_root} ]]; then
 	"}
 fi
 
-HISTFILE=${HISTFILE:-"${ILP32_WORK_DIR}/${container_name}--bash_history"}
+HISTFILE="${HISTFILE:-${work_dir}/${container_name}--bash_history}"
 
 docker run --rm   \
 	${USER_ARGS} \
-	-e HOST_WORK_DIR=${HOST_WORK_DIR} \
-	-e CURRENT_WORK_DIR=${ILP32_WORK_DIR} \
-	-v ${HOST_WORK_DIR}:${ILP32_WORK_DIR}:rw \
-	-w ${ILP32_WORK_DIR} \
+	-v ${PROJECT_TOP}:${PROJECT_TOP}:ro \
+	-v ${work_dir}:${work_dir} \
+	-w ${work_dir} \
 	-e HISTFILE=${HISTFILE} \
 	--network host \
 	--name ${container_name} \
