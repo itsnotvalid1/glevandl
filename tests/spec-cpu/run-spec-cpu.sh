@@ -98,9 +98,9 @@ on_exit() {
 
 	set +x
 	if [[ ${current_step} ]]; then
-		echo "${name}: current_step = ${current_step}" >&2
+		echo "${script_name}: current_step = ${current_step}" >&2
 	fi
-	echo "${name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+	echo "${script_name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
 
@@ -292,7 +292,7 @@ while true; do
 		unset step_run
 	else
 		if [[ ${current_step} == "setup" ]]; then
-			echo "${name}: ERROR: Must specify an option step." >&2
+			echo "${script_name}: ERROR: Must specify an option step." >&2
 			usage
 			exit 1
 		fi

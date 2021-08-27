@@ -3,8 +3,8 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build ilp32 Linux kernel" >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Build ilp32 Linux kernel" >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -b --build-dir    - Build directory. Default: '${build_dir}'." >&2
@@ -20,7 +20,7 @@ process_opts() {
 	local long_opts="help,build-dir:,install-dir:,kernel-src:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -49,7 +49,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -60,7 +60,7 @@ on_exit() {
 	local result=${1}
 
 	set +x
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 #===============================================================================
@@ -69,7 +69,7 @@ on_exit() {
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 set -ex
 
-name="${0##*/}"
+script_name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
@@ -93,7 +93,7 @@ fi
 if test -x "$(command -v ccache)"; then
 	ccache='ccache '
 else
-	echo "${name}: INFO: Please install ccache"
+	echo "${script_name}: INFO: Please install ccache"
 fi
 
 check_opt 'build-dir' ${build_dir}
@@ -134,5 +134,5 @@ eval ${cmd}
 cmd="make -C ${kernel_src} ${make_options} O='${build_dir}' modules_install"
 eval ${cmd}
 
-echo "${name}: INFO: kernel headers installed to '${headers_dir}'." >&2
+echo "${script_name}: INFO: kernel headers installed to '${headers_dir}'." >&2
 trap "on_exit 'Success.'" EXIT

@@ -3,8 +3,8 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Enter ilp32 Docker image." >&2
-	echo "Usage: ${name} [flags] -- [command]" >&2
+	echo "${script_name} - Enter ilp32 Docker image." >&2
+	echo "Usage: ${script_name} [flags] -- [command]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -v --verbose        - Verbose execution." >&2
@@ -26,7 +26,7 @@ local long_opts="help,verbose,\
 docker-args:,container-name:,as-root,tag,work-dir:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -68,7 +68,7 @@ docker-args:,container-name:,as-root,tag,work-dir:"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -79,7 +79,7 @@ on_exit() {
 	local result=${1}
 
 	set +x
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 #===============================================================================
@@ -87,9 +87,9 @@ on_exit() {
 #===============================================================================
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 
-name="${0##*/}"
+script_name="${0##*/}"
 
-image_type=${name%%.*}
+image_type=${script_name%%.*}
 image_type=${image_type##*-}
 
 trap "on_exit 'failed.'" EXIT
@@ -131,22 +131,24 @@ if [[ ${tag} ]]; then
 fi
 
 if [[ "${image_type}" == "toolup" && ${ILP32_TOOLUP} ]]; then
-	echo "${name}: ERROR: Already in ilp32-toolup container." >&2
-	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
+	echo "${script_name}: ERROR: Already in ilp32-toolup container." >&2
+	echo "${script_name}: INFO: Try running: '${user_cmd}'." >&2
 	exit 1
 fi
 
 if [[ "${image_type}" == "builder" && ${ILP32_BUILDER} ]]; then
-	echo "${name}: ERROR: Already in ilp32-builder container." >&2
-	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
+	echo "${script_name}: ERROR: Already in ilp32-builder container." >&2
+	echo "${script_name}: INFO: Try running: '${user_cmd}'." >&2
 	exit 1
 fi
 
 if [[ "${image_type}" == "runner" && ${ILP32_RUNNER} ]]; then
-	echo "${name}: ERROR: Already in ilp32-runner container." >&2
-	echo "${name}: INFO: Try running: '${user_cmd}'." >&2
+	echo "${script_name}: ERROR: Already in ilp32-runner container." >&2
+	echo "${script_name}: INFO: Try running: '${user_cmd}'." >&2
 	exit 1
 fi
+
+check_opt 'work-dir' ${work_dir}
 
 if [[ ! ${as_root} ]]; then
 	USER_ARGS=${USER_ARGS:-"-u $(id -u):$(id -g) \

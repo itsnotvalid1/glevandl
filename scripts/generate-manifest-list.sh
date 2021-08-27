@@ -3,8 +3,8 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Generate Docker manifest list." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Generate Docker manifest list." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -t --toolup         - Build ilp32-toolup container image." >&2
@@ -19,7 +19,7 @@ process_opts() {
 	local long_opts="help,toolup,builder,runner,build-top:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -49,13 +49,13 @@ process_opts() {
 		--)
 			shift
 			if [[ ${1} ]]; then
-				echo "${name}: ERROR: Got extra opts: '${@}'" >&2
+				echo "${script_name}: ERROR: Got extra opts: '${@}'" >&2
 				exit 1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -73,9 +73,9 @@ on_exit() {
 
 	set +x
 	if [[ ${current_step} != "done" ]]; then
-		echo "${name}: ERROR: Step '${current_step}' failed." >&2
+		echo "${script_name}: ERROR: Step '${current_step}' failed." >&2
 	fi
-	echo "${name}: Done: ${result} ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+	echo "${script_name}: Done: ${result} ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
 
@@ -85,7 +85,7 @@ on_exit() {
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 set -x
 
-name="${0##*/}"
+script_name="${0##*/}"
 build_time="$(date +%Y.%m.%d-%H.%M.%S)"
 
 current_step="setup"

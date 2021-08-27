@@ -3,8 +3,8 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build ilp32-toolup, ilp32-builder and ilp32-runner container images." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Build ilp32-toolup, ilp32-builder and ilp32-runner container images." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -f --force          - Removing existing docker image and rebuild." >&2
@@ -26,7 +26,7 @@ process_opts() {
 build-top:,--toolchain-destdir:,--toolchain-prefix:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -72,13 +72,13 @@ build-top:,--toolchain-destdir:,--toolchain-prefix:"
 		--)
 			shift
 			if [[ ${1} ]]; then
-				echo "${name}: ERROR: Got extra opts: '${@}'" >&2
+				echo "${script_name}: ERROR: Got extra opts: '${@}'" >&2
 				exit 1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -96,9 +96,9 @@ on_exit() {
 
 	set +x
 	if [[ ${current_step} != "done" ]]; then
-		echo "${name}: ERROR: Step '${current_step}' failed." >&2
+		echo "${script_name}: ERROR: Step '${current_step}' failed." >&2
 	fi
-	echo "${name}: Done: ${result} ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+	echo "${script_name}: Done: ${result} ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
 docker_from() {
@@ -128,11 +128,11 @@ build_image() {
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
 		if [[ ! ${force} ]]; then
-			echo "${name}: ERROR: Docker image exists: ${docker_tag}" >&2
+			echo "${script_name}: ERROR: Docker image exists: ${docker_tag}" >&2
 			exit 1
 		fi
 
-		echo "${name}: INFO: Removing existing docker image: ${docker_tag}" >&2
+		echo "${script_name}: INFO: Removing existing docker image: ${docker_tag}" >&2
 		docker rmi --force ${docker_tag}
 	fi
 
@@ -164,7 +164,7 @@ test_for_image() {
 	local docker_tag=${DOCKER_TAG:-"${docker_name}:${version}-${host_arch}"}
 
 	if docker inspect --type image ${docker_tag} &>/dev/null; then
-		echo "${name}: INFO: Docker image exists: ${docker_tag}" >&2
+		echo "${script_name}: INFO: Docker image exists: ${docker_tag}" >&2
 		return 0
 	fi
 	return 1
@@ -174,13 +174,13 @@ test_for_toolchain() {
 	if test -x "$(command -v ${toolchain_dest_pre}/bin/${target_triple}-gcc)"; then
 		return 0
 	fi
-	echo "${name}: INFO: No toolchain found: '${toolchain_dest_pre}'" >&2
+	echo "${script_name}: INFO: No toolchain found: '${toolchain_dest_pre}'" >&2
 	return 1
 }
 
 build_toolup() {
 	if [[ ${force} ]] || ! test_for_image toolup; then
-		tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+		tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 		build_image toolup ${tmp_dir}
 	fi
 }
@@ -211,10 +211,10 @@ build_builder() {
 
 	if [[ ${force} ]] || ! test_for_image ${image_type}; then
 		if [[ ${force} ]] || ! test_for_toolchain; then
-			echo "${name}: INFO: Building toolchain..." >&2
+			echo "${script_name}: INFO: Building toolchain..." >&2
 			build_toolchain
 		fi
-		echo "${name}: INFO: Using existing toolchain." >&2
+		echo "${script_name}: INFO: Using existing toolchain." >&2
 		build_image ${image_type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
@@ -224,10 +224,10 @@ build_runner() {
 
 	if [[ ${force} ]] || ! test_for_image ${image_type}; then
 		if ! test_for_toolchain; then
-			echo "${name}: INFO: Building toolchain..." >&2
+			echo "${script_name}: INFO: Building toolchain..." >&2
 			build_toolchain
 		fi
-		echo "${name}: INFO: Using existing toolchain." >&2
+		echo "${script_name}: INFO: Using existing toolchain." >&2
 		build_image ${image_type} ${toolchain_destdir} ${toolchain_prefix}
 	fi
 }
@@ -238,7 +238,7 @@ build_runner() {
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 set -x
 
-name="${0##*/}"
+script_name="${0##*/}"
 build_time="$(date +%Y.%m.%d-%H.%M.%S)"
 
 current_step="setup"
@@ -258,9 +258,9 @@ target_arch=$(get_arch "arm64")
 target_triple="aarch64-linux-gnu"
 default_image_version="2"
 
-process_opts "${@}"
-
 build_top="$(realpath -m ${build_top:-"$(pwd)/build-${build_time}"})"
+
+process_opts "${@}"
 
 toolchain_destdir="$(realpath -m ${toolchain_destdir:-"${build_top}/destdir"})"
 toolchain_prefix=${toolchain_prefix:-"/opt/ilp32"}

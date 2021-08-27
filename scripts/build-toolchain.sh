@@ -3,8 +3,8 @@
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build toolchain." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Build toolchain." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -c --check    - Run shellcheck." >&2
 	echo "  -h --help     - Show this help and exit." >&2
@@ -33,12 +33,12 @@ config-file:,build-top:,destdir:,prefix:,\
 git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archive"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 	
 	if [[ ${1} == '--' ]]; then
-		echo "${name}: ERROR: Must specify an option step." >&2
+		echo "${script_name}: ERROR: Must specify an option step." >&2
 		usage
 		exit 1
 	fi
@@ -111,7 +111,7 @@ git-clone,binutils,gcc-bootstrap,headers,glibc-lp64,glibc-ilp32,gcc-final,archiv
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -124,9 +124,9 @@ on_exit() {
 
 	set +x
 	if [[ ${current_step} ]]; then
-		echo "${name}: current_step = ${current_step}" >&2
+		echo "${script_name}: current_step = ${current_step}" >&2
 	fi
-	echo "${name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+	echo "${script_name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
 print_git_info() {
@@ -337,8 +337,8 @@ test_for_src() {
 		local checker="${n}_checker"
 
 		if [[ ! -f "${!checker}" ]]; then
-			echo -e "${name}: ${FUNCNAME[0]}: ERROR: Bad ${n} src: '${src_dir}'" >&2
-			echo -e "${name}: ${FUNCNAME[0]}: ERROR: Must set ${n}_src to root of ${n} sources." >&2
+			echo -e "${script_name}: ${FUNCNAME[0]}: ERROR: Bad ${n} src: '${src_dir}'" >&2
+			echo -e "${script_name}: ${FUNCNAME[0]}: ERROR: Must set ${n}_src to root of ${n} sources." >&2
 			usage
 			exit 1
 		fi
@@ -350,7 +350,7 @@ test_for_file() {
 	local file=${2}
 
 	if [[ ! -f ${file} ]]; then
-		echo -e "${name}: ${FUNCNAME[0]}: ERROR: Bad ${type}: '${file}'" >&2
+		echo -e "${script_name}: ${FUNCNAME[0]}: ERROR: Bad ${type}: '${file}'" >&2
 		usage
 		exit 1
 	fi
@@ -379,7 +379,7 @@ test_for_glibc() {
 export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
 set -x
 
-name="${0##*/}"
+script_name="${0##*/}"
 build_time="$(date +%Y.%m.%d-%H.%M.%S)"
 
 current_step="setup"
@@ -425,7 +425,7 @@ dest_pre="${destdir}${prefix}"
 headers_dir="${dest_pre}/usr/include"
 
 build_name="${build_name:-${build_time}}"
-log_file="${log_file:-${build_top}/${name}--${build_name}.log}"
+log_file="${log_file:-${build_top}/${script_name}--${build_name}.log}"
 
 binutils_src="${binutils_src:-${src_dir}/binutils}"
 binutils_repo="${binutils_repo:-git://sourceware.org/git/binutils-gdb.git}"
@@ -445,7 +445,7 @@ linux_repo="${linux_repo:-https://github.com/glevand/ilp32--linux.git}"
 linux_checker="${linux_checker:-${linux_src}/lib/bitmap.c}"
 
 if [[ ${use_master_branches} ]]; then
-	echo "${name}: Using toolchain master branches." >&2
+	echo "${script_name}: Using toolchain master branches." >&2
 	binutils_branch=${binutils_branch_master}
 	gcc_branch=${gcc_branch_master}
 	glibc_branch=${glibc_branch_master}
@@ -453,7 +453,7 @@ if [[ ${use_master_branches} ]]; then
 fi
 
 if [[ ${use_release_branches} ]]; then
-	echo "${name}: Using toolchain release branches." >&2
+	echo "${script_name}: Using toolchain release branches." >&2
 	binutils_branch=${binutils_branch_release}
 	gcc_branch=${gcc_branch_release}
 	glibc_branch=${glibc_branch_release}
@@ -461,7 +461,7 @@ if [[ ${use_release_branches} ]]; then
 fi
 
 if [[ ${use_stable_branches} ]]; then
-	echo "${name}: Using toolchain stable branches." >&2
+	echo "${script_name}: Using toolchain stable branches." >&2
 	binutils_branch=${binutils_branch_stable}
 	gcc_branch=${gcc_branch_stable}
 	glibc_branch=${glibc_branch_stable}
@@ -486,7 +486,7 @@ if [[ ${check} ]]; then
 fi
 
 if [[ ${DESTDIR} ]]; then
-	echo "${name}: ERROR: Use --destdir option, not DESTDIR environment variable." >&2
+	echo "${script_name}: ERROR: Use --destdir option, not DESTDIR environment variable." >&2
 	exit 1
 fi
 
@@ -500,7 +500,7 @@ arm64)
 	target_triple="aarch64-linux-gnu"
 	;;
 *)
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'." >&2
 	exit 1
 	;;
 esac
@@ -512,7 +512,7 @@ else
 fi
 
 mkdir -p ${build_top}
-cp -vf ${BASH_SOURCE} ${build_top}/${name}--${build_name}.sh
+cp -vf ${BASH_SOURCE} ${build_top}/${script_name}--${build_name}.sh
 
 print_branch_info ${log_file}
 
@@ -526,11 +526,11 @@ while true; do
 		current_step="step_git_clone"
 
 		if [[ ${DEBUG_TOOLCHAIN_SRC} && -d ${DEBUG_TOOLCHAIN_SRC} ]]; then
-			echo "${name}: INFO: Using DEBUG_TOOLCHAIN_SRC='${DEBUG_TOOLCHAIN_SRC}'." >&2
+			echo "${script_name}: INFO: Using DEBUG_TOOLCHAIN_SRC='${DEBUG_TOOLCHAIN_SRC}'." >&2
 			rm -rf ${src_dir}
 			cp -a --link ${DEBUG_TOOLCHAIN_SRC} ${src_dir}
 		else
-			echo "${name}: INFO: DEBUG_TOOLCHAIN_SRC not found: '${DEBUG_TOOLCHAIN_SRC}'." >&2
+			echo "${script_name}: INFO: DEBUG_TOOLCHAIN_SRC not found: '${DEBUG_TOOLCHAIN_SRC}'." >&2
 		fi
 		git_clone
 		unset step_git_clone
@@ -584,7 +584,7 @@ while true; do
 		unset step_archive
 	else
 		if [[ ${current_step} == "setup" ]]; then
-			echo "${name}: ERROR: Must specify an option step." >&2
+			echo "${script_name}: ERROR: Must specify an option step." >&2
 			usage
 			exit 1
 		fi
