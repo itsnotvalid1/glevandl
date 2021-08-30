@@ -34,6 +34,32 @@
 static const char linkage_abi_fmt[] = "[%s-%s]";
 static char linkage_abi[sizeof(linkage) + sizeof(abi) + sizeof(linkage_abi_fmt)];
 
+#if 0
+static void test_sizes(void)
+{
+	struct timespec ts;
+	struct timeval tv;
+
+	char (*__1)[sizeof(ts)] = 1;         // ilp32 = 8 bytes, lp64 = 16 bytes.
+	char (*__2)[sizeof(ts.tv_sec)] = 1;  // ilp32 = 4 bytes, lp64 = 8 bytes.
+	char (*__3)[sizeof(ts.tv_nsec)] = 1; // ilp32 = 4 bytes, lp64 = 8 bytes.
+	
+	char (*__4)[sizeof(tv)] = 1;         // ilp32 = 8 bytes, lp64 = 16 bytes.
+	char (*__5)[sizeof(tv.tv_sec)] = 1;  // ilp32 = 4 bytes, lp64 = 8 bytes.
+	char (*__6)[sizeof(tv.tv_usec)] = 1; // ilp32 = 4 bytes, lp64 = 8 bytes.
+}
+#endif
+
+static void print_timespec_size(void)
+{
+	struct timespec ts;
+
+	printf("%s %s: timespec: tv_sec = %u bytes, tv_nsec = %u bytes\n",
+		linkage_abi, __func__,
+		(unsigned int)sizeof(ts.tv_sec),
+		(unsigned int)sizeof(ts.tv_nsec));
+}
+
 /*
  * int clock_getres(clockid_t clk_id, struct timespec *res);
  * int clock_gettime(clockid_t clk_id, struct timespec *tp);
@@ -227,6 +253,7 @@ int main(void)
 	snprintf(linkage_abi, sizeof(linkage_abi), linkage_abi_fmt, linkage, abi);
 
 	printf("%s -- tests start --\n", linkage_abi);
+	print_timespec_size();
 
 	fflush(stdout);
 	sleep(1);
