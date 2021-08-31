@@ -29,32 +29,6 @@ substring_ends() {
 	[ -z "${string##*${substring}}" ];
 }
 
-strip_current() {
-	local path=${1}
-
-	if [[ ! ${CURRENT_WORK_DIR} ]]; then
-		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
-		exit 1
-	fi
-
-	if ! substring_begins ${path} ${CURRENT_WORK_DIR}; then
-		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad path: '${path}'" >&2
-		exit 1
-	fi
-
-	echo "${path#${CURRENT_WORK_DIR}}"
-}
-
-to_host() {
-	local path=${1}
-
-	if [[ ! ${HOST_WORK_DIR} ]]; then
-		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad HOST_WORK_DIR" >&2
-		exit 1
-	fi
-
-	echo "${HOST_WORK_DIR}$(strip_current ${path})"
-}
 
 sec_to_min() {
 	local sec=${1}
@@ -137,6 +111,32 @@ check_not_opt() {
 		usage
 		exit 1
 	fi
+}
+
+find_common_parent() {
+	local dir1
+	dir1="$(realpath -m "${1}")"
+	local dir2
+	dir2="$(realpath -m "${2}")"
+	local A1
+	local A2
+	local sub
+
+	IFS="/" read -ra A1 <<< "${dir1}"
+	IFS="/" read -ra A2 <<< "${dir2}"
+
+	#echo "array len = ${#A1[@]}" >&2
+
+	for ((i = 0; i < ${#A1[@]}; i++)); do
+		echo "${i}: @${A1[i]}@ @${A2[i]}@" >&2
+		if [[ "${A1[i]}" != "${A2[i]}" ]]; then
+			break;
+		fi
+		sub+="${A1[i]}/"
+	done
+
+	#echo "sub = @${sub}@" >&2
+	echo "${sub}"
 }
 
 relative_path_2() {
