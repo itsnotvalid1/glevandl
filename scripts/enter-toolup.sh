@@ -162,7 +162,6 @@ HISTFILE="${HISTFILE:-${work_dir}/${container_name}--bash_history}"
 docker run --rm   \
 	${USER_ARGS} \
 	-v ${PROJECT_TOP}:${PROJECT_TOP}:ro \
-	-v ${work_dir}:${work_dir} \
 	-w ${work_dir} \
 	-e HISTFILE=${HISTFILE} \
 	--network host \

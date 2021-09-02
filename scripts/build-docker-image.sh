@@ -190,15 +190,21 @@ build_toolchain() {
 
 #	printenv
 #			--volumes-from $(get_container_id) \
+	local common_parent
+
+	if [[ ${DEBUG_TOOLCHAIN_SRC} && -d "${DEBUG_TOOLCHAIN_SRC}" ]]; then
+		common_parent="$(find_common_parent "${build_top}" "${DEBUG_TOOLCHAIN_SRC}")"
+	fi
 
 	${SCRIPTS_TOP}/enter-toolup.sh \
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
 		--work-dir=${build_top} \
 		--docker-args="\
-			-v ${toolchain_dest_pre}:${toolchain_prefix} \
 			-v ${PROJECT_TOP}:${PROJECT_TOP}:ro \
-			-e DEBUG_TOOLCHAIN_SRC=${DEBUG_TOOLCHAIN_SRC}" \
+			-v ${toolchain_dest_pre}:${toolchain_prefix} \
+			${common_parent:+-v ${common_parent}:${common_parent}} \
+			-e DEBUG_TOOLCHAIN_SRC" \
 		-- ${PROJECT_TOP}/scripts/build-toolchain.sh \
 			--build-top=${build_top} \
 			--destdir="/" \
