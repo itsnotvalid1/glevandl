@@ -258,6 +258,7 @@ build_glibc() {
 	popd
 
 	make -C ${dir} -j ${cpus} all
+	#make -C ${dir} -j ${cpus} tests
 	make -C ${dir} DESTDIR=${dest_pre} install
 	export PATH="${path_orig}"
 	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
@@ -304,6 +305,17 @@ archive_libraries() {
 		${prefix#/}/libilp32 \
 		${prefix#/}/lib/ld-linux-aarch64.so.1 \
 		${prefix#/}/lib64
+}
+
+archive_glibc_tests() {
+	tar -cvzf "${build_top}/glibc-src--${build_name}.tar.gz" \
+		-C "${src_dir}" "glibc"
+
+	local abi
+	for abi in lp64 ilp32; do
+		tar -cvzf "${build_top}/glibc-${abi}-tests--${build_name}.tar.gz" \
+			-C "${build_dir}" "glibc_${abi}"
+	done
 }
 
 print_branch_info() {
@@ -517,9 +529,6 @@ cp -vf ${BASH_SOURCE} ${build_top}/${script_name}--${build_name}.sh
 print_branch_info ${log_file}
 
 printenv
-ls -l /home/geoff/projects/tdd/tdd--test/
-ls -l /home/geoff/projects/tdd/tdd--test/ilp32-builder-work
-ls -l /home/geoff/projects/tdd/tdd--test/ilp32-builder-work/debug-toolchain-src
 
 while true; do
 	if [[ ${step_git_clone} ]]; then
@@ -580,6 +589,7 @@ while true; do
 		test_for_glibc
 		archive_toolchain
 		archive_libraries
+		archive_glibc_tests
 		print_info ${log_file}
 		unset step_archive
 	else
@@ -595,3 +605,4 @@ done
 
 
 trap "on_exit 'Success.'" EXIT
+exit 0
