@@ -196,7 +196,7 @@ build_toolchain() {
 		common_parent="$(find_common_parent "${build_top}" "${DEBUG_TOOLCHAIN_SRC}")"
 	fi
 
-	${SCRIPTS_TOP}/enter-toolup.sh \
+	${SCRIPTS_TOP}/enter-ilp32-toolup.sh \
 		--verbose \
 		--container-name=build-toolchain--$(date +%H-%M-%S) \
 		--work-dir=${build_top} \
@@ -205,7 +205,7 @@ build_toolchain() {
 			-v ${toolchain_dest_pre}:${toolchain_prefix} \
 			${common_parent:+-v ${common_parent}:${common_parent}} \
 			-e DEBUG_TOOLCHAIN_SRC" \
-		-- ${PROJECT_TOP}/scripts/build-toolchain.sh \
+		-- ${PROJECT_TOP}/scripts/build-ilp32-toolchain.sh \
 			--build-top=${build_top} \
 			--destdir="/" \
 			--prefix=${toolchain_prefix} \

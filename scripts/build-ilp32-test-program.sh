@@ -117,14 +117,17 @@ fi
 
 mkdir -p "${build_top}"
 
-${SCRIPTS_TOP}/enter-builder.sh \
+${SCRIPTS_TOP}/enter-ilp32-builder.sh \
 	--verbose \
 	--container-name=build-${test_name}--$(date +%H-%M-%S) \
 	--work-dir="${build_top}" \
+	--docker-args="\
+		-v AA1${PROJECT_TOP}:${PROJECT_TOP}:ro \
+		-v AA2${build_top}:${build_top} \
 	-- ${src_top}/build-${test_name}.sh \
 		--verbose \
 		--build-top=${build_top} \
-		--prefix=${prefix}
+		--prefix=${prefix}"
 
 trap "on_exit 'Success.'" EXIT
 exit 0
