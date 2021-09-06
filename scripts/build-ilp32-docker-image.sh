@@ -188,8 +188,6 @@ build_toolup() {
 build_toolchain() {
 	mkdir -p ${toolchain_dest_pre}
 
-#	printenv
-#			--volumes-from $(get_container_id) \
 	local common_parent
 
 	if [[ ${DEBUG_TOOLCHAIN_SRC} && -d "${DEBUG_TOOLCHAIN_SRC}" ]]; then

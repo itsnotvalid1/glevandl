@@ -117,14 +117,18 @@ fi
 
 mkdir -p "${build_top}"
 
+container_id=$(get_container_id)
+
+if [[ ! ${container_id} ]]; then
+	DOCKER_EXTRA_ARGS+=" --docker-args="-v ${build_top}:${build_top}""
+fi
+
 ${SCRIPTS_TOP}/enter-ilp32-builder.sh \
 	--verbose \
-	--container-name=build-${test_name}--$(date +%H-%M-%S) \
+	--container-name="build-${test_name}--$(date +%H-%M-%S)" \
 	--work-dir="${build_top}" \
-	--docker-args="\
-		-v AA1${PROJECT_TOP}:${PROJECT_TOP}:ro \
-		-v AA2${build_top}:${build_top} \
-	-- ${src_top}/build-${test_name}.sh \
+	${DOCKER_EXTRA_ARGS} \
+	-- "${src_top}/build-${test_name}.sh \
 		--verbose \
 		--build-top=${build_top} \
 		--prefix=${prefix}"

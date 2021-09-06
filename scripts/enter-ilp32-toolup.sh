@@ -157,11 +157,19 @@ if [[ ! ${as_root} ]]; then
 	"}
 fi
 
+container_id=$(get_container_id)
+
+if [[ ${container_id} ]]; then
+	DOCKER_VOLUMES+=" --volumes-from ${container_id}"
+else
+	DOCKER_VOLUMES+=" -v ${PROJECT_TOP}:${PROJECT_TOP}:ro"
+fi
+
 HISTFILE="${HISTFILE:-${work_dir}/${container_name}--bash_history}"
 
 docker run --rm   \
+	${DOCKER_VOLUMES} \
 	${USER_ARGS} \
-	-v ${PROJECT_TOP}:${PROJECT_TOP}:ro \
 	-w ${work_dir} \
 	-e HISTFILE=${HISTFILE} \
 	--network host \
