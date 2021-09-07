@@ -178,14 +178,12 @@ static int test_gettimeofday(void)
  *
  */
 
-static int alarm_event;
+static volatile sig_atomic_t alarm_event;
 
-static void SIGALRM_handler(int __attribute__((unused)) signum)
+static void SIGALRM_handler(int signum)
 {
-	fflush(stdout);
-	printf("\n%s\n", __func__);
-	fflush(stdout);
 	alarm_event = 1;
+	signal(signum, SIGALRM_handler);
 }
 
 static void alpha_print(char c, unsigned limit)
@@ -196,6 +194,9 @@ static void alpha_print(char c, unsigned limit)
 		fprintf(stderr, "%c", c + i);
 		fflush(stderr);
 		if (alarm_event) {
+			fflush(stdout);
+			printf("alarm_event\n");
+			fflush(stdout);
 			return;
 		}
 	}
