@@ -137,13 +137,13 @@ print_git_info() {
 }
 
 git_clone() {
-	git_checkout_safe ${binutils_src} ${binutils_repo} "${binutils_branch}"
-	git_checkout_safe ${gcc_src} ${gcc_repo} "${gcc_branch}"
-	pushd ${gcc_src}
+	git_checkout_safe "${binutils_src}" "${binutils_repo}" "${binutils_branch}"
+	git_checkout_safe "${gcc_src}" "${gcc_repo}" "${gcc_branch}"
+	pushd "${gcc_src}"
 	bash -x ./contrib/download_prerequisites
 	popd
-	git_checkout_safe ${glibc_src} ${glibc_repo} "${glibc_branch}"
-	git_checkout_safe ${linux_src} ${linux_repo} "${linux_branch}"
+	git_checkout_safe "${glibc_src}" "${glibc_repo}" "${glibc_branch}"
+	git_checkout_safe "${linux_src}" "${linux_repo}" "${linux_branch}"
 
 	{
 		echo "--- git info ---"
@@ -159,45 +159,43 @@ git_clone() {
 		echo "${linux_repo}:${linux_branch}"
 		print_git_info ${linux_src}
 		echo "-------------------------"
-	} | tee --append ${log_file}
+	} | tee --append "${log_file}"
 }
 
 build_binutils() {
 	local dir="${build_dir}/binutils"
 
-	rm -rf ${dir}
-	mkdir -p ${dir}
+	rm -rf "${dir}"
+	mkdir -p "${dir}"
 
-	export PATH="${dest_pre}/bin:${path_orig}"
+	export PATH="${destdir}${prefix}/bin:${path_orig}"
 
-	pushd ${dir}
-	${binutils_src}/configure \
+	pushd "${dir}"
+	"${binutils_src}/configure" \
 		${target_opts} \
-		--prefix=${dest_pre} \
-		--with-sysroot=${dest_pre}
+		--prefix="${prefix}"
 	popd
 
-	make -C ${dir} -j ${cpus} all
-	make -C ${dir} install
+	make -C "${dir}" -j ${cpus} all
+	make -C "${dir}" DESTDIR="${destdir}" install
 
 	export PATH="${path_orig}"
-	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
+	find "${destdir}${prefix}" -type f -ls >> "${dir}/manifest.txt"
 }
 
 build_gcc_bootstrap() {
 	local dir="${build_dir}/gcc_bootstrap"
 
-	rm -rf ${dir}
-	mkdir -p ${dir}
+	rm -rf "${dir}"
+	mkdir -p "${dir}"
 
-	export PATH="${dest_pre}/bin:${path_orig}"
-	mkdir -p ${dest_pre}/usr/lib
+	export PATH="${destdir}${prefix}/bin:${path_orig}"
+	mkdir -p "${destdir}${prefix}/usr/lib"
 
-	pushd ${dir}
-	${gcc_src}/configure \
+	pushd "${dir}"
+	"${gcc_src}/configure" \
 		${target_opts} \
-		--prefix=${dest_pre} \
-		--with-sysroot=${dest_pre} \
+		--prefix="${prefix}" \
 		--enable-gnu-indirect-function \
 		--with-newlib \
 		--without-headers \
@@ -210,101 +208,101 @@ build_gcc_bootstrap() {
 		--disable-bootstrap
 	popd
 
-	make -C ${dir} -j ${cpus} all-gcc all-target-libgcc
-	make -C ${dir} install-gcc install-target-libgcc
+	make -C "${dir}" -j ${cpus} all-gcc all-target-libgcc
+	make -C "${dir}" DESTDIR="${destdir}" install-gcc install-target-libgcc
 
 	unset BUILD_CC CC CXX AR RANLIB AS LD
 	export PATH="${path_orig}"
-	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
+	find "${destdir}${prefix}" -type f -ls >> "${dir}/manifest.txt"
 }
 
 build_headers() {
-	make -C ${linux_src} -j ${cpus} \
+	make -C "${linux_src}" -j ${cpus} \
 		ARCH=${target_arch} \
 		CROSS_COMPILE="${target_triple}-" \
-		INSTALL_HDR_PATH="${dest_pre}/usr" \
+		INSTALL_HDR_PATH="${destdir}${prefix}/usr" \
 		headers_install
 
-	find ${dest_pre} -type f -ls >> ${build_dir}/headers-manifest.txt
+	find "${destdir}${prefix}" -type f -ls >> "${build_dir}/headers-manifest.txt"
 }
 
 build_glibc() {
 	local abi=${1}
 	local dir="${build_dir}/glibc_${abi}"
 
-	rm -rf ${dir}
-	mkdir -p ${dir}
-	export PATH="${dest_pre}/bin:${path_orig}"
+	rm -rf "${dir}"
+	mkdir -p "${dir}"
+	export PATH="${destdir}${prefix}/bin:${path_orig}"
 
-	pushd ${dir}
-	${glibc_src}/configure \
-		--with-headers=${headers_dir} \
+	pushd "${dir}"
+	"${glibc_src}/configure" \
+		--with-headers="${headers_dir}" \
 		--enable-obsolete-rpc \
 		--enable-add-ons \
-		--prefix=/usr \
-		--host=${target_triple} \
+		--prefix="${prefix}" \
+		--host="${target_triple}" \
 		BUILD_CC="/usr/bin/gcc" \
-		CC="${dest_pre}/bin/${target_triple}-gcc -mabi=${abi}" \
-		CXX="${dest_pre}/bin/${target_triple}-g++ -mabi=${abi}" \
-		AR=${target_triple}-ar \
-		AS=${target_triple}-as \
-		LD=${target_triple}-ld \
-		NM=${target_triple}-nm \
-		OBJCOPY=${target_triple}-objcopy \
-		OBJDUMP=${target_triple}-objdump \
-		RANLIB=${target_triple}-ranlib \
-		READELF=${target_triple}-readelf \
-		STRIP=${target_triple}-strip
+		CC="${destdir}${prefix}/bin/${target_triple}-gcc -mabi=${abi}" \
+		CXX="${destdir}${prefix}/bin/${target_triple}-g++ -mabi=${abi}" \
+		AR="${target_triple}-ar" \
+		AS="${target_triple}-as" \
+		LD="${target_triple}-ld" \
+		NM="${target_triple}-nm" \
+		OBJCOPY="${target_triple}-objcopy" \
+		OBJDUMP="${target_triple}-objdump" \
+		RANLIB="${target_triple}-ranlib" \
+		READELF="${target_triple}-readelf" \
+		STRIP="${target_triple}-strip"
 	popd
 
-	make -C ${dir} -j ${cpus} all
-	#make -C ${dir} -j ${cpus} tests
-	make -C ${dir} DESTDIR=${dest_pre} install
+	make -C "${dir}" -j ${cpus} all
+	#make -C "${dir}" -j ${cpus} tests
+	make -C "${dir}" DESTDIR="${destdir}" install
 	export PATH="${path_orig}"
-	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
+	find "${destdir}${prefix}" -type f -ls >> "${dir}/manifest.txt"
 }
 
 build_gcc_final() {
 	local dir="${build_dir}/gcc_final"
 
-	rm -rf ${dir}
-	mkdir -p ${dir}
+	rm -rf "${dir}"
+	mkdir -p "${dir}"
 
-	export PATH="${dest_pre}/bin:${path_orig}"
+	export PATH="${destdir}${prefix}/bin:${path_orig}"
 
-	pushd ${dir}
-	${gcc_src}/configure \
+	pushd "${dir}"
+	"${gcc_src}/configure" \
 		${target_opts} \
-		--prefix=${dest_pre} \
-		--with-sysroot=${dest_pre} \
+		--prefix="${prefix}" \
 		--with-multilib-list=lp64,ilp32 \
 		--enable-gnu-indirect-function \
 		--enable-languages=c,c++,fortran \
 		--enable-threads \
 		--enable-shared \
 		--disable-libsanitizer \
-		--disable-bootstrap
+		--disable-bootstrap \
+		--with-sysroot="${destdir}${prefix}"
 	popd
 
-	make -C ${dir} -j ${cpus} all
-	make -C ${dir} install
+	make -C "${dir}" -j ${cpus} all
+	make -C "${dir}" DESTDIR="${destdir}" install
 
 	export PATH="${path_orig}"
-	find ${dest_pre} -type f -ls >> ${dir}/manifest.txt
+	find "${destdir}${prefix}" -type f -ls >> "${dir}/manifest.txt"
 }
 
 archive_toolchain() {
 	tar -cvzf "${build_top}/ilp32-toolchain--${build_name}.tar.gz" \
-		-C ${destdir} ${prefix#/}
+		-C "${destdir}" ${prefix#/}
 }
 
 archive_libraries() {
 	tar -cvzf "${build_top}/ilp32-libraries--${build_name}.tar.gz" \
-		-C ${destdir} \
-		${prefix#/}/lib/ld-linux-aarch64_ilp32.so.1 \
-		${prefix#/}/libilp32 \
-		${prefix#/}/lib/ld-linux-aarch64.so.1 \
-		${prefix#/}/lib64
+		-C "${destdir}" \
+		"${prefix#/}/lib/ld-linux-aarch64_ilp32.so.1" \
+		"${prefix#/}/libilp32" \
+		"${prefix#/}/lib/ld-linux-aarch64.so.1" \
+		"${prefix#/}/lib64"
 }
 
 archive_glibc_tests() {
@@ -332,13 +330,13 @@ print_branch_info() {
 		echo "linux_repo      = ${linux_repo}"
 		echo "linux_branch    = ${linux_branch}"
 		echo "-------------------"
-	} | tee --append ${log_file}
+	} | tee --append "${log_file}"
 }
 
 print_info() {
 	local log_file=${1}
 
-	print_gcc_info ${dest_pre}/bin/${target_triple}-gcc ${log_file}
+	print_gcc_info "${destdir}${prefix}/bin/${target_triple}-gcc" "${log_file}"
 }
 
 test_for_src() {
@@ -361,7 +359,7 @@ test_for_file() {
 	local type=${1}
 	local file=${2}
 
-	if [[ ! -f ${file} ]]; then
+	if [[ ! -f "${file}" ]]; then
 		echo -e "${script_name}: ${FUNCNAME[0]}: ERROR: Bad ${type}: '${file}'" >&2
 		usage
 		exit 1
@@ -373,15 +371,15 @@ test_for_headers() {
 }
 
 test_for_binutils() {
-	test_for_file "binutils" "${dest_pre}/${target_triple}/bin/ld"
+	test_for_file "binutils" "${destdir}${prefix}/${target_triple}/bin/ld"
 }
 
 test_for_gcc() {
-	test_for_file "gcc" "${dest_pre}/bin/${target_triple}-gcc"
+	test_for_file "gcc" "${destdir}${prefix}/bin/${target_triple}-gcc"
 }
 
 test_for_glibc() {
-	test_for_file "glibc" "${dest_pre}/lib/ld-linux-aarch64_ilp32.so.1"
+	test_for_file "glibc" "${destdir}${prefix}/lib/ld-linux-aarch64_ilp32.so.1"
 }
 
 #===============================================================================
@@ -433,8 +431,7 @@ src_dir="${src_dir:-${build_top}/src}"
 
 prefix="${prefix:-/opt/ilp32}"
 destdir="${destdir:-${build_top}/destdir}"
-dest_pre="${destdir}${prefix}"
-headers_dir="${dest_pre}/usr/include"
+headers_dir="${destdir}${prefix}/usr/include"
 
 build_name="${build_name:-${build_time}}"
 log_file="${log_file:-${build_top}/${script_name}--${build_name}.log}"
@@ -526,7 +523,7 @@ fi
 mkdir -p ${build_top}
 cp -vf ${BASH_SOURCE} ${build_top}/${script_name}--${build_name}.sh
 
-print_branch_info ${log_file}
+print_branch_info "${log_file}"
 
 printenv
 
@@ -546,8 +543,8 @@ while true; do
 	elif [[ ${step_binutils} ]]; then
 		current_step="step_binutils"
 		test_for_src
-		mkdir -p ${dest_pre}
-		rm -rf ${dest_pre}/*
+		mkdir -p ${destdir}${prefix}
+		rm -rf ${destdir}${prefix}/*
 		build_binutils
 		unset step_binutils
 	elif [[ ${step_gcc_bootstrap} ]]; then
@@ -590,7 +587,7 @@ while true; do
 		archive_toolchain
 		archive_libraries
 		archive_glibc_tests
-		print_info ${log_file}
+		print_info "${log_file}"
 		unset step_archive
 	else
 		if [[ ${current_step} == "setup" ]]; then
@@ -602,7 +599,6 @@ while true; do
 	fi
 	unset current_step
 done
-
 
 trap "on_exit 'Success.'" EXIT
 exit 0
