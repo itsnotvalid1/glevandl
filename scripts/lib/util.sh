@@ -29,39 +29,28 @@ substring_ends() {
 	[ -z "${string##*${substring}}" ];
 }
 
-
 sec_to_min() {
 	local sec=${1}
-	local min="$((sec / 60))"
-	local frac="$(((sec * 100) / 60))"
-	local len=${#frac}
+	local min=$((sec / 60))
+	local frac=$(((sec - min * 60) * 100 / 60))
 
-	if [[ ${len} -eq 1 ]]; then
-		frac="0${frac}"
-	elif [[ ${len} -gt 2 ]]; then
-		frac=${frac:(-2)}
-	fi
 	echo "${min}.${frac}"
-}
-
-sec_to_min_bc() {
-	local sec=${1}
-	echo "scale=2; ${sec}/60" | bc -l | sed 's/^\./0./'
 }
 
 directory_size_bytes() {
 	local dir=${1}
 
-	local size="$(du -sb ${dir})"
-	echo ${size%%[[:space:]]*}
+	local size
+	size="$(du -sb "${dir}")"
+	echo "${size%%[[:space:]]*}"
 }
 
 directory_size_human() {
 	local dir=${1}
 
 	local size
-	size="$(du -sh ${dir})"
-	echo ${size%%[[:space:]]*}
+	size="$(du -sh "${dir}")"
+	echo "${size%%[[:space:]]*}"
 }
 
 check_directory() {
@@ -91,7 +80,7 @@ check_file() {
 check_opt() {
 	option=${1}
 	shift
-	value=${@}
+	value="${*}"
 
 	if [[ ! ${value} ]]; then
 		echo "${script_name}: ERROR (${FUNCNAME[0]}): Must provide --${option} option." >&2
@@ -104,7 +93,7 @@ check_not_opt() {
 	option1=${1}
 	option2=${2}
 	shift 2
-	value2=${@}
+	value2="${*}"
 
 	if [[ ${value2} ]]; then
 		echo "${script_name}: ERROR (${FUNCNAME[0]}): Can't use --${option2} with --${option1}." >&2
@@ -198,24 +187,32 @@ copy_file() {
 	local src="${1}"
 	local dest="${2}"
 
-	check_file ${src}
-	cp -f ${src} ${dest}
+	check_file "${src}"
+	cp -f "${src}" "${dest}"
 }
 
 cpu_count() {
-	echo "$(getconf _NPROCESSORS_ONLN || echo 1)"
+	local result
+
+	if result="$(getconf _NPROCESSORS_ONLN)"; then
+		echo "${result}"
+	else
+		echo "1"
+	fi
 }
 
 get_user_home() {
 	local user=${1}
 	local result;
 
-	if ! result="$(getent passwd ${user})"; then
+	if ! result="$(getent passwd "${user}")"; then
 		echo "${script_name}: ERROR (${FUNCNAME[0]}): No home for user '${user}'" >&2
 		exit 1
 	fi
-	echo ${result} | cut -d ':' -f 6
+	echo "${result}" | cut -d ':' -f 6
 }
+
+known_arches="arm64 amd64 ppc32 ppc64 ppc64le"
 
 get_arch() {
 	local a=${1}
@@ -285,20 +282,20 @@ find_addr() {
 
 	_find_addr__addr=""
 
-	if is_ip_addr ${host}; then
-		_find_addr__addr=${host}
+	if is_ip_addr "${host}"; then
+		_find_addr__addr="${host}"
 		return
 	fi
 
 	if [[ ! -x "$(command -v dig)" ]]; then
 		echo "${script_name}: WARNING: Please install dig (dnsutils)." >&2
 	else
-		_find_addr__addr="$(dig ${host} +short)"
+		_find_addr__addr="$(dig "${host}" +short)"
 	fi
 
 	if [[ ! ${_find_addr__addr} ]]; then
-		_find_addr__addr="$(egrep -m 1 "${host}[[:space:]]*$" ${hosts_file} \
-			| egrep -o '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' || :)"
+		_find_addr__addr="$(grep -E -m 1 "${host}[[:space:]]*$" "${hosts_file}" \
+			| grep -E -o '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' || :)"
 
 		if [[ ! ${_find_addr__addr} ]]; then
 			echo "${script_name}: ERROR (${FUNCNAME[0]}): '${host}' DNS entry not found." >&2
@@ -308,7 +305,7 @@ find_addr() {
 }
 
 my_addr() {
-	ip route get 8.8.8.8 | egrep -o 'src [0-9.]*' | cut -f 2 -d ' '
+	ip route get 8.8.8.8 | grep -E -o 'src [0-9.]*' | cut -f 2 -d ' '
 }
 
 wait_pid() {
@@ -318,12 +315,12 @@ wait_pid() {
 
 	echo "${script_name}: INFO: Waiting ${timeout_sec}s for pid ${pid}." >&2
 
-	let count=1
-	while kill -0 ${pid} &> /dev/null; do
-		let count=count+5
+	local count=1
+	while kill -0 "${pid}" &> /dev/null; do
+		((count = count + 5))
 		if [[ count -gt ${timeout_sec} ]]; then
 			echo "${script_name}: ERROR (${FUNCNAME[0]}): wait_pid failed for pid ${pid}." >&2
-			exit -1
+			exit 2
 		fi
 		sleep 5s
 	done
@@ -362,15 +359,15 @@ git_set_remote() {
 
 	remote="$(git -C "${dir}" remote -v | grep -E --max-count=1 'origin' | cut -f2 | cut -d ' ' -f1)"
 
-	if [[ ${?} -ne 0 ]]; then
+	if ! remote="$(git -C "${dir}" remote -v | grep -E --max-count=1 'origin' | cut -f2 | cut -d ' ' -f1)"; then
 		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad git repo ${dir}." >&2
 		exit 1
 	fi
 
 	if [[ "${remote}" != "${repo}" ]]; then
 		echo "${script_name}: INFO: Switching git remote '${remote}' => '${repo}'." >&2
-		git -C ${dir} remote set-url origin ${repo}
-		git -C ${dir} remote -v
+		git -C "${dir}" remote set-url origin "${repo}"
+		git -C "${dir}" remote -v
 	fi
 }
 
@@ -425,7 +422,8 @@ run_shellcheck() {
 }
 
 get_container_id() {
-	local cpuset="$(cat /proc/1/cpuset)"
+	local cpuset
+	cpuset="$(cat /proc/1/cpuset)"
 	local regex="^/docker/([[:xdigit:]]*)$"
 	local container_id
 
@@ -446,3 +444,5 @@ if [[ ${PS4} == '+ ' ]]; then
 		export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 	fi
 fi
+
+script_name="${script_name:-${0##*/}}"
