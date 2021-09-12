@@ -441,7 +441,7 @@ if [[ ${PS4} == '+ ' ]]; then
 	if [[ ${JENKINS_URL} ]]; then
 		export PS4='+ [${STAGE_NAME}] \${BASH_SOURCE##*/}:\${LINENO}: '
 	else
-		export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
+		export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):\[\e[0m\] '
 	fi
 fi
 

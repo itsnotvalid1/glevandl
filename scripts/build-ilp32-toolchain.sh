@@ -466,7 +466,7 @@ test_for_final_gcc() {
 }
 
 #===============================================================================
-export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
+export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):\[\e[0m\] '
 set -x
 
 script_name="${0##*/}"
